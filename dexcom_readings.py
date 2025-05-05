@@ -106,9 +106,10 @@ def main():
                       f"{current_bg.value} mg/dL ({current_bg.trend_description}), "
                       f"Time: {current_glucose_timestamp.isoformat()}")
             else:
+                last_known = (last_known_glucose_timestamp.isoformat() if
+                              last_known_glucose_timestamp else 'N/A')
                 print(f"{check_timestamp_utc.isoformat()}: No new reading. Last "
-                      f"known: {last_known_glucose_timestamp.isoformat() if "
-                      f"last_known_glucose_timestamp else 'N/A'}")
+                      f"known: {last_known}")
         else:
             print(f"{check_timestamp_utc.isoformat()}: Could not retrieve "
                   f"glucose reading.")
