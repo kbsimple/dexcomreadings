@@ -57,7 +57,11 @@ Plans:
   3. Service retries failed API calls with exponential backoff before logging error
   4. Service continues running after transient network failures (does not crash)
 
-**Plans:** TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Configure polling interval from environment and implement graceful shutdown
+- [ ] 02-02-PLAN.md — Add retry logic with exponential backoff for network failures
 
 ---
 
@@ -84,7 +88,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Style Guide & Infrastructure | 4/4 | Complete    | 2026-04-19 |
-| 2. Configuration & Robustness | 0/3 | Not started | - |
+| 2. Configuration & Robustness | 0/2 | Not started | - |
 | 3. Testing & Documentation | 0/4 | Not started | - |
 
 ---
