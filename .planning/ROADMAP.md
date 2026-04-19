@@ -33,7 +33,13 @@ Dexcom Readings - A Dexcom CGM data polling and forwarding service. Fetches real
   4. Constants follow `CAPS_WITH_UNDERSCORE` naming convention
   5. `requirements.txt` exists with pinned versions for `pydexcom` and `requests`
 
-**Plans:** TBD
+**Plans:** 4 plans in 4 waves
+
+Plans:
+- [ ] 01-01-PLAN.md — Create requirements.txt, add module docstring, organize imports, verify constants
+- [ ] 01-02-PLAN.md — Encapsulate global state (pass last_known_glucose_timestamp as parameter)
+- [ ] 01-03-PLAN.md — Add comprehensive docstrings and type hints to all functions
+- [ ] 01-04-PLAN.md — Fix line length violations, configure pylint
 
 ---
 
