@@ -20,8 +20,9 @@ import sys
 import time
 from typing import Any
 
-import requests
 from pydexcom import Dexcom  # Dexcom Share API client
+
+import requests
 
 # IMPORTANT: Store your credentials securely as environment variables
 DEXCOM_USERNAME = os.environ.get("DEXCOM_USERNAME")
