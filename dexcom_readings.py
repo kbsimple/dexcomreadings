@@ -187,26 +187,30 @@ def initialize_dexcom_client() -> Any | None:
 def get_latest_glucose_reading(dexcom_client: Any) -> Any | None:
     """Fetches the most recent glucose reading from the Dexcom API.
 
+    Uses retry logic with exponential backoff for transient failures.
+
     Args:
         dexcom_client: An authenticated Dexcom client instance from
             pydexcom library.
 
     Returns:
         GlucoseReading | None: The latest glucose reading object containing
-            value, datetime, and trend information, or None if the fetch
-            fails or client is invalid.
+            value, datetime, and trend information, or None if all
+            retry attempts fail or client is invalid.
 
     Raises:
         No exceptions raised; errors are logged and None is returned.
     """
     if not dexcom_client:
         return None
-    try:
-        bg = dexcom_client.get_current_glucose_reading()
-        return bg
-    except Exception as e:
-        logging.error(f"Error fetching glucose reading: {e}")
-        return None
+
+    def fetch_reading() -> Any:
+        return dexcom_client.get_current_glucose_reading()
+
+    result = retry_with_backoff(fetch_reading)
+    if result is None:
+        logging.error("Failed to fetch glucose reading after all retries")
+    return result
 
 def write_to_csv(data_row: list) -> None:
     """Appends a glucose reading data row to the CSV log file.
@@ -238,7 +242,7 @@ def upload_to_nightscout(
         trend_arrow: str) -> None:
     """Uploads a glucose reading to Nightscout via REST API.
 
-    Sends a sensor glucose value (SGV) entry to the Nightscout API.
+    Uses retry logic with exponential backoff for transient failures.
     Requires NIGHTSCOUT_URL and NIGHTSCOUT_API_SECRET environment
     variables to be set. If either is missing, the function returns
     early without uploading.
@@ -260,18 +264,12 @@ def upload_to_nightscout(
     if not NIGHTSCOUT_URL or not NIGHTSCOUT_API_SECRET:
         return
 
-    # Nightscout expects ISO 8601 format, UTC
-    # The pydexcom datetime object is already UTC
     date_string = timestamp_utc.isoformat()
-
-    # Nightscout typically uses arrow names for direction
-    direction = trend_arrow
-
     entry = {
         "dateString": date_string,
         "sgv": value,
-        "direction": direction,
-        "type": "sgv" # Specify type as sgv (sensor glucose value)
+        "direction": trend_arrow,
+        "type": "sgv"
     }
 
     url = f"{NIGHTSCOUT_URL.rstrip('/')}/api/v1/entries"
@@ -280,20 +278,20 @@ def upload_to_nightscout(
         "Content-Type": "application/json"
     }
 
-    try:
-        logging.info(f"Uploading reading to Nightscout: {value} at "
-              f"{date_string}")
+    def post_to_nightscout() -> None:
+        logging.info(f"Uploading reading to Nightscout: {value} "
+                    f"at {date_string}")
         response = requests.post(
             url, json=[entry], headers=headers, timeout=30
         )
-        response.raise_for_status()  # For bad status codes (4xx or 5xx)
+        response.raise_for_status()
         logging.info("Successfully uploaded to Nightscout.")
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Error uploading to Nightscout: {e}")
-    except Exception as e:
+
+    result = retry_with_backoff(post_to_nightscout)
+    if result is None:
         logging.error(
-            f"An unexpected error occurred during "
-            f"Nightscout upload: {e}"
+            f"Failed to upload to Nightscout after all retries: "
+            f"{value} at {date_string}"
         )
 
 def main() -> None:
