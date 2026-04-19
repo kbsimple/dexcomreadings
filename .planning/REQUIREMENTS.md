@@ -9,12 +9,12 @@
 
 ### Configuration
 
-- [ ] **CONF-01**: Make polling interval configurable via `POLLING_INTERVAL_SECONDS` environment variable
+- [x] **CONF-01**: Make polling interval configurable via `POLLING_INTERVAL_SECONDS` environment variable
 
 ### Robustness
 
-- [ ] **ROBUST-01**: Implement graceful shutdown with signal handlers (SIGTERM/SIGINT)
-- [ ] **ROBUST-02**: Add retry logic with exponential backoff for transient network failures
+- [x] **ROBUST-01**: Implement graceful shutdown with signal handlers (SIGTERM/SIGINT)
+- [x] **ROBUST-02**: Add retry logic with exponential backoff for transient network failures
 
 ### Testing
 
@@ -66,9 +66,9 @@
 | STYLE-07 | Phase 1 | Complete |
 | STYLE-08 | Phase 1 | Complete |
 | INFRA-01 | Phase 1 | Complete |
-| CONF-01 | Phase 2 | Pending |
-| ROBUST-01 | Phase 2 | Pending |
-| ROBUST-02 | Phase 2 | Pending |
+| CONF-01 | Phase 2 | Complete |
+| ROBUST-01 | Phase 2 | Complete |
+| ROBUST-02 | Phase 2 | Complete |
 | TEST-01 | Phase 3 | Pending |
 | TEST-02 | Phase 3 | Pending |
 | TEST-03 | Phase 3 | Pending |

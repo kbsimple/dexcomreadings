@@ -11,7 +11,7 @@ Dexcom Readings - A Dexcom CGM data polling and forwarding service. Fetches real
 ## Phases
 
 - [x] **Phase 1: Style Guide & Infrastructure** - Establish Google Python Style Guide compliance and project documentation foundation (completed 2026-04-19)
-- [ ] **Phase 2: Configuration & Robustness** - Add operational flexibility with configurable polling and resilient error handling
+- [x] **Phase 2: Configuration & Robustness** - Add operational flexibility with configurable polling and resilient error handling (completed 2026-04-19)
 - [ ] **Phase 3: Testing & Documentation** - Verify all changes work correctly and complete user-facing documentation
 
 ---
@@ -57,11 +57,11 @@ Plans:
   3. Service retries failed API calls with exponential backoff before logging error
   4. Service continues running after transient network failures (does not crash)
 
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 02-01-PLAN.md — Configure polling interval from environment and implement graceful shutdown
-- [ ] 02-02-PLAN.md — Add retry logic with exponential backoff for network failures
+- [x] 02-01-PLAN.md — Configure polling interval from environment and implement graceful shutdown
+- [x] 02-02-PLAN.md — Add retry logic with exponential backoff for network failures
 
 ---
 
@@ -88,7 +88,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Style Guide & Infrastructure | 4/4 | Complete    | 2026-04-19 |
-| 2. Configuration & Robustness | 0/2 | Not started | - |
+| 2. Configuration & Robustness | 2/2 | Complete    | 2026-04-19 |
 | 3. Testing & Documentation | 0/4 | Not started | - |
 
 ---
