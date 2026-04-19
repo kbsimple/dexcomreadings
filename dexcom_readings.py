@@ -50,7 +50,6 @@ logging.basicConfig(
 # Suppress excessive logging from requests or other libraries if needed
 # logging.getLogger("requests").setLevel(logging.WARNING)
 
-last_known_glucose_timestamp = None
 
 def initialize_dexcom_client():
     """Initializes and returns the Dexcom client."""
@@ -131,7 +130,8 @@ def upload_to_nightscout(value, timestamp_utc, trend_arrow):
         logging.error(f"An unexpected error occurred during Nightscout upload: {e}")
 
 def main():
-    global last_known_glucose_timestamp
+    """Main polling loop for Dexcom readings."""
+    last_known_glucose_timestamp = None  # Local state, not global
 
     dexcom_client = initialize_dexcom_client()
     if not dexcom_client:
