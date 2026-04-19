@@ -1,0 +1,86 @@
+# Roadmap
+
+## Project Summary
+
+Dexcom Readings - A Dexcom CGM data polling and forwarding service. Fetches real-time glucose readings from the Dexcom Share API and forwards them to Nightscout with local CSV logging.
+
+**Core Value:** Reliable, continuous glucose data replication from Dexcom to Nightscout without data loss.
+
+---
+
+## Phases
+
+- [ ] **Phase 1: Style Guide & Infrastructure** - Establish Google Python Style Guide compliance and project documentation foundation
+- [ ] **Phase 2: Configuration & Robustness** - Add operational flexibility with configurable polling and resilient error handling
+- [ ] **Phase 3: Testing & Documentation** - Verify all changes work correctly and complete user-facing documentation
+
+---
+
+## Phase Details
+
+### Phase 1: Style Guide & Infrastructure
+
+**Goal:** Codebase complies with Google Python Style Guide with proper documentation and dependency specification.
+
+**Depends on:** Nothing (first phase)
+
+**Requirements:** STYLE-01, STYLE-02, STYLE-03, STYLE-04, STYLE-05, STYLE-06, STYLE-07, STYLE-08, INFRA-01
+
+**Success Criteria** (what must be TRUE):
+  1. `pylint` runs on the codebase with no unresolved warnings
+  2. All public functions have docstrings with Args/Returns/Raises sections
+  3. All function signatures display type hints when inspected
+  4. Constants follow `CAPS_WITH_UNDERSCORE` naming convention
+  5. `requirements.txt` exists with pinned versions for `pydexcom` and `requests`
+
+**Plans:** TBD
+
+---
+
+### Phase 2: Configuration & Robustness
+
+**Goal:** Service operates reliably with configurable behavior and graceful degradation under adverse conditions.
+
+**Depends on:** Phase 1
+
+**Requirements:** CONF-01, ROBUST-01, ROBUST-02
+
+**Success Criteria** (what must be TRUE):
+  1. User can set polling interval via `POLLING_INTERVAL_SECONDS` environment variable
+  2. Service shuts down cleanly when receiving SIGTERM or SIGINT, completing current cycle first
+  3. Service retries failed API calls with exponential backoff before logging error
+  4. Service continues running after transient network failures (does not crash)
+
+**Plans:** TBD
+
+---
+
+### Phase 3: Testing & Documentation
+
+**Goal:** Test suite validates production behavior and users have complete setup documentation.
+
+**Depends on:** Phase 2
+
+**Requirements:** TEST-01, TEST-02, TEST-03, INFRA-02
+
+**Success Criteria** (what must be TRUE):
+  1. All existing tests pass with corrected mocks using `logging` module
+  2. `upload_to_nightscout()` function has test coverage for success and failure cases
+  3. Codebase uses `sys.exit()` consistently (no bare `exit()` calls)
+  4. `README.md` documents installation, configuration, and usage with all environment variables
+
+**Plans:** TBD
+
+---
+
+## Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Style Guide & Infrastructure | 0/4 | Not started | - |
+| 2. Configuration & Robustness | 0/3 | Not started | - |
+| 3. Testing & Documentation | 0/4 | Not started | - |
+
+---
+
+*Last updated: 2026-04-19*

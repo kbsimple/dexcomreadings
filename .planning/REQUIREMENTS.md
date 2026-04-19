@@ -55,9 +55,24 @@
 
 ## Traceability
 
-| Phase | Requirements | Status |
-|-------|--------------|--------|
-| _ | _ | _ |
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| STYLE-01 | Phase 1 | Pending |
+| STYLE-02 | Phase 1 | Pending |
+| STYLE-03 | Phase 1 | Pending |
+| STYLE-04 | Phase 1 | Pending |
+| STYLE-05 | Phase 1 | Pending |
+| STYLE-06 | Phase 1 | Pending |
+| STYLE-07 | Phase 1 | Pending |
+| STYLE-08 | Phase 1 | Pending |
+| INFRA-01 | Phase 1 | Pending |
+| CONF-01 | Phase 2 | Pending |
+| ROBUST-01 | Phase 2 | Pending |
+| ROBUST-02 | Phase 2 | Pending |
+| TEST-01 | Phase 3 | Pending |
+| TEST-02 | Phase 3 | Pending |
+| TEST-03 | Phase 3 | Pending |
+| INFRA-02 | Phase 3 | Pending |
 
 ---
 *Last updated: 2026-04-19*
