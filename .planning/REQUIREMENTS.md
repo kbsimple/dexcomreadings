@@ -4,7 +4,7 @@
 
 ### Project Infrastructure
 
-- [ ] **INFRA-01**: Add `requirements.txt` with pinned versions for `pydexcom` and `requests`
+- [x] **INFRA-01**: Add `requirements.txt` with pinned versions for `pydexcom` and `requests`
 - [ ] **INFRA-02**: Add `README.md` with installation, configuration, and usage documentation
 
 ### Configuration
@@ -24,14 +24,14 @@
 
 ### Style Guide Compliance
 
-- [ ] **STYLE-01**: Add module-level docstring with usage description and license
-- [ ] **STYLE-02**: Add docstrings to all public functions with Args/Returns/Raises
-- [ ] **STYLE-03**: Add type hints to all function signatures
-- [ ] **STYLE-04**: Rename constants to `CAPS_WITH_UNDERSCORE` format
-- [ ] **STYLE-05**: Organize imports per Google Style Guide (stdlib, third-party, local; alphabetical)
-- [ ] **STYLE-06**: Ensure all lines ≤80 characters
-- [ ] **STYLE-07**: Add `pylint` configuration and suppress warnings appropriately
-- [ ] **STYLE-08**: Encapsulate global state in a class or pass as parameter
+- [x] **STYLE-01**: Add module-level docstring with usage description and license
+- [x] **STYLE-02**: Add docstrings to all public functions with Args/Returns/Raises
+- [x] **STYLE-03**: Add type hints to all function signatures
+- [x] **STYLE-04**: Rename constants to `CAPS_WITH_UNDERSCORE` format
+- [x] **STYLE-05**: Organize imports per Google Style Guide (stdlib, third-party, local; alphabetical)
+- [x] **STYLE-06**: Ensure all lines ≤80 characters
+- [x] **STYLE-07**: Add `pylint` configuration and suppress warnings appropriately
+- [x] **STYLE-08**: Encapsulate global state in a class or pass as parameter
 
 ---
 
@@ -57,15 +57,15 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STYLE-01 | Phase 1 | Pending |
-| STYLE-02 | Phase 1 | Pending |
-| STYLE-03 | Phase 1 | Pending |
-| STYLE-04 | Phase 1 | Pending |
-| STYLE-05 | Phase 1 | Pending |
-| STYLE-06 | Phase 1 | Pending |
-| STYLE-07 | Phase 1 | Pending |
-| STYLE-08 | Phase 1 | Pending |
-| INFRA-01 | Phase 1 | Pending |
+| STYLE-01 | Phase 1 | Complete |
+| STYLE-02 | Phase 1 | Complete |
+| STYLE-03 | Phase 1 | Complete |
+| STYLE-04 | Phase 1 | Complete |
+| STYLE-05 | Phase 1 | Complete |
+| STYLE-06 | Phase 1 | Complete |
+| STYLE-07 | Phase 1 | Complete |
+| STYLE-08 | Phase 1 | Complete |
+| INFRA-01 | Phase 1 | Complete |
 | CONF-01 | Phase 2 | Pending |
 | ROBUST-01 | Phase 2 | Pending |
 | ROBUST-02 | Phase 2 | Pending |
