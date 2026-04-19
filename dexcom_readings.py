@@ -52,7 +52,22 @@ logging.basicConfig(
 
 
 def initialize_dexcom_client():
-    """Initializes and returns the Dexcom client."""
+    """Initializes and authenticates a Dexcom Share API client.
+
+    Reads credentials from environment variables (DEXCOM_USERNAME,
+    DEXCOM_PASSWORD, DEXCOM_REGION) and creates an authenticated
+    Dexcom client for fetching glucose readings.
+
+    Args:
+        None
+
+    Returns:
+        Dexcom | None: An authenticated Dexcom client instance, or None
+            if credentials are missing or authentication fails.
+
+    Raises:
+        No exceptions raised; errors are logged and None is returned.
+    """
     if not DEXCOM_USERNAME or not DEXCOM_PASSWORD:
         logging.error("DEXCOM_USERNAME and DEXCOM_PASSWORD must be set.")
         return None # Return None instead of exiting, let main handle exit
@@ -74,7 +89,20 @@ def initialize_dexcom_client():
         return None
 
 def get_latest_glucose_reading(dexcom_client):
-    """Fetches the latest glucose reading from Dexcom."""
+    """Fetches the most recent glucose reading from the Dexcom API.
+
+    Args:
+        dexcom_client: An authenticated Dexcom client instance from
+            pydexcom library.
+
+    Returns:
+        GlucoseReading | None: The latest glucose reading object containing
+            value, datetime, and trend information, or None if the fetch
+            fails or client is invalid.
+
+    Raises:
+        No exceptions raised; errors are logged and None is returned.
+    """
     if not dexcom_client:
         return None
     try:
@@ -85,7 +113,22 @@ def get_latest_glucose_reading(dexcom_client):
         return None
 
 def write_to_csv(data_row):
-    """Appends a row of data to the CSV file."""
+    """Appends a glucose reading data row to the CSV log file.
+
+    Creates the file with headers if it doesn't exist, otherwise appends
+    the data row to the existing file.
+
+    Args:
+        data_row: A list of values to write as a CSV row. Expected format:
+            [check_timestamp_utc, new_reading_received, glucose_value_mgdl,
+             glucose_timestamp_utc, trend_description, trend_arrow]
+
+    Returns:
+        None
+
+    Raises:
+        No exceptions raised; file I/O errors are not caught here.
+    """
     file_exists = os.path.isfile(OUTPUT_CSV_FILE)
     with open(OUTPUT_CSV_FILE, mode='a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
@@ -94,7 +137,27 @@ def write_to_csv(data_row):
         writer.writerow(data_row)
 
 def upload_to_nightscout(value, timestamp_utc, trend_arrow):
-    """Uploads a single glucose reading to Nightscout."""
+    """Uploads a glucose reading to Nightscout via REST API.
+
+    Sends a sensor glucose value (SGV) entry to the Nightscout API.
+    Requires NIGHTSCOUT_URL and NIGHTSCOUT_API_SECRET environment
+    variables to be set. If either is missing, the function returns
+    early without uploading.
+
+    Args:
+        value: The glucose value in mg/dL as an integer.
+        timestamp_utc: A datetime object representing the reading timestamp
+            in UTC.
+        trend_arrow: A string representing the trend direction arrow
+            (e.g., "→", "↑", "↓↓").
+
+    Returns:
+        None
+
+    Raises:
+        No exceptions raised; HTTP and network errors are logged and the
+            function returns silently.
+    """
     if not NIGHTSCOUT_URL or not NIGHTSCOUT_API_SECRET:
         return
 
@@ -130,7 +193,21 @@ def upload_to_nightscout(value, timestamp_utc, trend_arrow):
         logging.error(f"An unexpected error occurred during Nightscout upload: {e}")
 
 def main():
-    """Main polling loop for Dexcom readings."""
+    """Main polling loop for Dexcom glucose readings.
+
+    Continuously polls the Dexcom Share API for new glucose readings,
+    logs data to CSV, and uploads to Nightscout when configured.
+    Runs indefinitely until interrupted.
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Raises:
+        SystemExit: If Dexcom client initialization fails (exit code 1).
+    """
     last_known_glucose_timestamp = None  # Local state, not global
 
     dexcom_client = initialize_dexcom_client()
