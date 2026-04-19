@@ -1,0 +1,47 @@
+[MASTER]
+# Python code to execute before pylint runs
+init-hook=''
+
+# Use multiple processes to speed up pylint
+jobs=1
+
+[MESSAGES CONTROL]
+# Disable specific warnings that are acceptable for this project
+disable=
+    too-few-public-methods,
+    broad-exception-caught,
+    global-statement
+
+[FORMAT]
+# Maximum line length
+max-line-length=80
+
+# Regexp for a line that creates a function call
+function-rgx=[a-z_][a-z0-9_]{2,40}$
+
+# Regexp for a line that creates a variable
+variable-rgx=[a-z_][a-z0-9_]{1,30}$
+
+# Regexp for a line that creates a constant
+const-rgx=(([A-Z_][A-Z0-9_]*)|(__.*__))$
+
+[TYPECHECK]
+# List of module names for which member attributes should not be checked
+ignored-modules=pydexcom
+
+[BASIC]
+# Good variable names which should always be accepted
+good-names=i, j, k, e, f, _
+
+[SIMILARITIES]
+# Minimum lines number of a similarity
+min-similarity-lines=4
+
+# Ignore comments when computing similarities
+ignore-comments=yes
+
+# Ignore docstrings when computing similarities
+ignore-docstrings=yes
+
+# Ignore imports when computing similarities
+ignore-imports=yes
