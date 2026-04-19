@@ -52,6 +52,11 @@ except ValueError:
     )
     POLLING_INTERVAL_SECONDS = 60
 
+# Retry configuration for transient failures
+RETRY_MAX_ATTEMPTS = 3
+RETRY_INITIAL_DELAY_SECONDS = 1
+RETRY_MAX_DELAY_SECONDS = 30
+
 # CSV file for logging
 OUTPUT_CSV_FILE = "dexcom_readings_log.csv"
 CSV_HEADERS = [
@@ -69,6 +74,55 @@ logging.basicConfig(
 
 # Shutdown flag for graceful termination
 shutdown_requested = False
+
+
+def retry_with_backoff(
+        func: Any,
+        max_attempts: int = RETRY_MAX_ATTEMPTS,
+        initial_delay: float = RETRY_INITIAL_DELAY_SECONDS,
+        max_delay: float = RETRY_MAX_DELAY_SECONDS) -> Any | None:
+    """Executes a function with exponential backoff retry for transient failures.
+
+    Retries the function on network-related exceptions, doubling the delay
+    between attempts up to max_delay.
+
+    Args:
+        func: A callable to execute. Should be a lambda or partial that
+            captures any arguments needed.
+        max_attempts: Maximum number of retry attempts before giving up.
+        initial_delay: Initial delay in seconds before first retry.
+        max_delay: Maximum delay in seconds between retries.
+
+    Returns:
+        Any | None: The function result on success, or None if all
+            attempts fail.
+
+    Raises:
+        No exceptions raised; errors are logged and None is returned.
+    """
+    delay = initial_delay
+    last_exception = None
+
+    for attempt in range(max_attempts):
+        try:
+            return func()
+        except (requests.exceptions.RequestException,
+                ConnectionError,
+                TimeoutError) as e:
+            last_exception = e
+            if attempt < max_attempts - 1:
+                logging.warning(
+                    f"Attempt {attempt + 1}/{max_attempts} failed: {e}. "
+                    f"Retrying in {delay}s..."
+                )
+                time.sleep(delay)
+                delay = min(delay * 2, max_delay)
+            else:
+                logging.error(
+                    f"All {max_attempts} attempts failed. Last error: {e}"
+                )
+
+    return None
 
 
 def handle_shutdown_signal(signum: int, frame: Any) -> None:
