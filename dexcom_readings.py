@@ -20,7 +20,7 @@ import time
 from typing import Any
 
 import requests
-from pydexcom import Dexcom  # Or the specific import from the library you choose
+from pydexcom import Dexcom  # Dexcom Share API client
 
 # IMPORTANT: Store your credentials securely as environment variables
 DEXCOM_USERNAME = os.environ.get("DEXCOM_USERNAME")
@@ -137,7 +137,10 @@ def write_to_csv(data_row: list) -> None:
             writer.writerow(CSV_HEADERS)
         writer.writerow(data_row)
 
-def upload_to_nightscout(value: int, timestamp_utc: datetime.datetime, trend_arrow: str) -> None:
+def upload_to_nightscout(
+        value: int,
+        timestamp_utc: datetime.datetime,
+        trend_arrow: str) -> None:
     """Uploads a glucose reading to Nightscout via REST API.
 
     Sends a sensor glucose value (SGV) entry to the Nightscout API.
@@ -191,7 +194,10 @@ def upload_to_nightscout(value: int, timestamp_utc: datetime.datetime, trend_arr
     except requests.exceptions.RequestException as e:
         logging.error(f"Error uploading to Nightscout: {e}")
     except Exception as e:
-        logging.error(f"An unexpected error occurred during Nightscout upload: {e}")
+        logging.error(
+            f"An unexpected error occurred during "
+            f"Nightscout upload: {e}"
+        )
 
 def main() -> None:
     """Main polling loop for Dexcom glucose readings.
@@ -252,10 +258,13 @@ def main() -> None:
                 trend_description_to_log = current_bg.trend_description
                 trend_arrow_to_log = current_bg.trend_arrow
                 
-                # Corrected duplicated "New reading! Value: " and changed to logging
-                logging.info(f"{check_timestamp_utc.isoformat()}: New reading! Value: {current_bg.value} mg/dL "
-                      f"({current_bg.trend_description}), Time: "
-                      f"{current_glucose_datetime.isoformat()}")
+                # Changed to logging for new reading notification
+                logging.info(
+                    f"{check_timestamp_utc.isoformat()}: New reading! "
+                    f"Value: {current_bg.value} mg/dL "
+                    f"({current_bg.trend_description}), "
+                    f"Time: {current_glucose_datetime.isoformat()}"
+                )
 
                 upload_to_nightscout(
                     glucose_value_to_log,
@@ -265,8 +274,10 @@ def main() -> None:
             else:
                 last_known = (last_known_glucose_timestamp.isoformat() if
                               last_known_glucose_timestamp else 'N/A')
-                logging.info(f"{check_timestamp_utc.isoformat()}: No new reading. "
-                      f"Last known: {last_known}")
+                logging.info(
+                    f"{check_timestamp_utc.isoformat()}: No new reading. "
+                    f"Last known: {last_known}"
+                )
         else:
             logging.warning(f"{check_timestamp_utc.isoformat()}: Could not "
                             f"retrieve glucose reading.")
