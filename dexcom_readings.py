@@ -14,9 +14,10 @@ License:
 
 import csv
 import datetime
+import logging
 import os
 import time
-import logging
+
 import requests
 from pydexcom import Dexcom  # Or the specific import from the library you choose
 
