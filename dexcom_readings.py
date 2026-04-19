@@ -16,6 +16,7 @@ import csv
 import datetime
 import logging
 import os
+import signal
 import sys
 import time
 from typing import Any
@@ -65,6 +66,28 @@ logging.basicConfig(
 
 # Suppress excessive logging from requests or other libraries if needed
 # logging.getLogger("requests").setLevel(logging.WARNING)
+
+# Shutdown flag for graceful termination
+shutdown_requested = False
+
+
+def handle_shutdown_signal(signum: int, frame: Any) -> None:
+    """Handles SIGTERM and SIGINT for graceful shutdown.
+
+    Sets the shutdown_requested flag to allow the main loop to
+    complete the current polling cycle before exiting.
+
+    Args:
+        signum: The signal number received (SIGTERM or SIGINT).
+        frame: The current stack frame (unused).
+
+    Returns:
+        None
+    """
+    global shutdown_requested
+    signal_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
+    logging.info(f"Received {signal_name}, completing current cycle...")
+    shutdown_requested = True
 
 
 def initialize_dexcom_client() -> Any | None:
@@ -235,6 +258,10 @@ def main() -> None:
     Raises:
         SystemExit: If Dexcom client initialization fails (exit code 1).
     """
+    # Register signal handlers for graceful shutdown
+    signal.signal(signal.SIGTERM, handle_shutdown_signal)
+    signal.signal(signal.SIGINT, handle_shutdown_signal)
+
     last_known_glucose_timestamp = None  # Local state, not global
 
     dexcom_client = initialize_dexcom_client()
@@ -251,7 +278,7 @@ def main() -> None:
     logging.info(f"Polling Dexcom every {POLLING_INTERVAL_SECONDS} seconds. "
           f"Logging to {OUTPUT_CSV_FILE}")
 
-    while True:
+    while not shutdown_requested:
         check_timestamp_utc = datetime.datetime.utcnow()
         new_reading_received = False
 
@@ -313,6 +340,9 @@ def main() -> None:
         write_to_csv(log_row)
 
         time.sleep(POLLING_INTERVAL_SECONDS)
+
+    logging.info("Shutdown complete.")
+
 
 if __name__ == "__main__":
     if not os.path.isfile(OUTPUT_CSV_FILE):
