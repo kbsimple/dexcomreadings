@@ -1,0 +1,2 @@
+pydexcom==0.46.0
+requests==2.31.0
