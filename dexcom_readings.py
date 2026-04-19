@@ -16,6 +16,7 @@ import csv
 import datetime
 import logging
 import os
+import sys
 import time
 from typing import Any
 
@@ -71,8 +72,8 @@ def initialize_dexcom_client() -> Any | None:
     """
     if not DEXCOM_USERNAME or not DEXCOM_PASSWORD:
         logging.error("DEXCOM_USERNAME and DEXCOM_PASSWORD must be set.")
-        return None # Return None instead of exiting, let main handle exit
-    
+        return None  # Return None instead of exiting, let main handle exit
+
     logging.info(f"Connecting to Dexcom Share for user {DEXCOM_USERNAME} "
           f"in region {DEXCOM_REGION}...")
     try:
@@ -81,8 +82,11 @@ def initialize_dexcom_client() -> Any | None:
             dexcom_client = Dexcom(username=DEXCOM_USERNAME,
                                    password=DEXCOM_PASSWORD)
         else:
-            dexcom_client = Dexcom(DEXCOM_USERNAME, DEXCOM_PASSWORD,
-                                   ous=(DEXCOM_REGION.lower() == "ous"))
+            dexcom_client = Dexcom(
+                DEXCOM_USERNAME,
+                DEXCOM_PASSWORD,
+                ous=DEXCOM_REGION.lower() == "ous"
+            )
         logging.info("Successfully connected to Dexcom Share.")
         return dexcom_client
     except Exception as e:
@@ -188,7 +192,9 @@ def upload_to_nightscout(
     try:
         logging.info(f"Uploading reading to Nightscout: {value} at "
               f"{date_string}")
-        response = requests.post(url, json=[entry], headers=headers)
+        response = requests.post(
+            url, json=[entry], headers=headers, timeout=30
+        )
         response.raise_for_status()  # For bad status codes (4xx or 5xx)
         logging.info("Successfully uploaded to Nightscout.")
     except requests.exceptions.RequestException as e:
@@ -220,7 +226,7 @@ def main() -> None:
     dexcom_client = initialize_dexcom_client()
     if not dexcom_client:
         logging.error("Exiting due to Dexcom client initialization failure.")
-        exit(1) # Now exit here after logging
+        sys.exit(1)  # Now exit here after logging
 
     if not NIGHTSCOUT_URL or not NIGHTSCOUT_API_SECRET:
         logging.warning("NIGHTSCOUT_URL or NIGHTSCOUT_API_SECRET not set. "
@@ -234,7 +240,7 @@ def main() -> None:
     while True:
         check_timestamp_utc = datetime.datetime.utcnow()
         new_reading_received = False
-        
+
         current_bg = get_latest_glucose_reading(dexcom_client)
 
         glucose_value_to_log = None
@@ -249,15 +255,15 @@ def main() -> None:
 
             if (last_known_glucose_timestamp is None or
                     current_glucose_datetime > last_known_glucose_timestamp):
-                new_reading_received = True # noqa: E501
+                new_reading_received = True  # noqa: E501
 
                 last_known_glucose_timestamp = current_glucose_datetime
-                
+
                 glucose_value_to_log = current_bg.value
                 glucose_timestamp_to_log = current_glucose_datetime.isoformat()
                 trend_description_to_log = current_bg.trend_description
                 trend_arrow_to_log = current_bg.trend_arrow
-                
+
                 # Changed to logging for new reading notification
                 logging.info(
                     f"{check_timestamp_utc.isoformat()}: New reading! "

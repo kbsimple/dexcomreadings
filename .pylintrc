@@ -10,7 +10,18 @@ jobs=1
 disable=
     too-few-public-methods,
     broad-exception-caught,
-    global-statement
+    global-statement,
+    unsupported-binary-operation,
+    logging-fstring-interpolation,
+    redefined-outer-name
+
+# Rationale for suppressions:
+# - too-few-public-methods: Not applicable for this script-style module
+# - broad-exception-caught: Acceptable for network operations and API calls
+# - global-statement: Was removed in Plan 02; kept for future if needed
+# - unsupported-binary-operation: Python 3.10+ union syntax (X | None) for type hints
+# - logging-fstring-interpolation: f-strings in logging are acceptable for this script
+# - redefined-outer-name: Common pattern with context managers (with open(...) as f)
 
 [FORMAT]
 # Maximum line length
