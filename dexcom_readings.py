@@ -35,8 +35,21 @@ NIGHTSCOUT_URL = os.environ.get("NIGHTSCOUT_URL")
 # Use a hashed secret if possible, but plain is common for API uploads
 NIGHTSCOUT_API_SECRET = os.environ.get("NIGHTSCOUT_API_SECRET")
 
-# Polling interval in seconds
-POLLING_INTERVAL_SECONDS = 60
+# Polling interval in seconds (configurable via environment variable)
+try:
+    POLLING_INTERVAL_SECONDS = int(
+        os.environ.get("POLLING_INTERVAL_SECONDS", "60")
+    )
+    if POLLING_INTERVAL_SECONDS < 1:
+        logging.warning(
+            "POLLING_INTERVAL_SECONDS must be at least 1, using default 60"
+        )
+        POLLING_INTERVAL_SECONDS = 60
+except ValueError:
+    logging.warning(
+        "Invalid POLLING_INTERVAL_SECONDS value, using default 60"
+    )
+    POLLING_INTERVAL_SECONDS = 60
 
 # CSV file for logging
 OUTPUT_CSV_FILE = "dexcom_readings_log.csv"
