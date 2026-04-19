@@ -17,6 +17,7 @@ import datetime
 import logging
 import os
 import time
+from typing import Any
 
 import requests
 from pydexcom import Dexcom  # Or the specific import from the library you choose
@@ -51,7 +52,7 @@ logging.basicConfig(
 # logging.getLogger("requests").setLevel(logging.WARNING)
 
 
-def initialize_dexcom_client():
+def initialize_dexcom_client() -> Any | None:
     """Initializes and authenticates a Dexcom Share API client.
 
     Reads credentials from environment variables (DEXCOM_USERNAME,
@@ -88,7 +89,7 @@ def initialize_dexcom_client():
         logging.error(f"Error initializing Dexcom client: {e}")
         return None
 
-def get_latest_glucose_reading(dexcom_client):
+def get_latest_glucose_reading(dexcom_client: Any) -> Any | None:
     """Fetches the most recent glucose reading from the Dexcom API.
 
     Args:
@@ -112,7 +113,7 @@ def get_latest_glucose_reading(dexcom_client):
         logging.error(f"Error fetching glucose reading: {e}")
         return None
 
-def write_to_csv(data_row):
+def write_to_csv(data_row: list) -> None:
     """Appends a glucose reading data row to the CSV log file.
 
     Creates the file with headers if it doesn't exist, otherwise appends
@@ -136,7 +137,7 @@ def write_to_csv(data_row):
             writer.writerow(CSV_HEADERS)
         writer.writerow(data_row)
 
-def upload_to_nightscout(value, timestamp_utc, trend_arrow):
+def upload_to_nightscout(value: int, timestamp_utc: datetime.datetime, trend_arrow: str) -> None:
     """Uploads a glucose reading to Nightscout via REST API.
 
     Sends a sensor glucose value (SGV) entry to the Nightscout API.
@@ -192,7 +193,7 @@ def upload_to_nightscout(value, timestamp_utc, trend_arrow):
     except Exception as e:
         logging.error(f"An unexpected error occurred during Nightscout upload: {e}")
 
-def main():
+def main() -> None:
     """Main polling loop for Dexcom glucose readings.
 
     Continuously polls the Dexcom Share API for new glucose readings,
