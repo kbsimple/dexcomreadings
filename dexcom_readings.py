@@ -1,3 +1,17 @@
+"""Dexcom CGM data polling and forwarding service.
+
+This module provides continuous glucose monitoring data replication from the
+Dexcom Share API to Nightscout with local CSV logging for backup.
+
+Usage:
+    Set environment variables: DEXCOM_USERNAME, DEXCOM_PASSWORD
+    Optional: DEXCOM_REGION, NIGHTSCOUT_URL, NIGHTSCOUT_API_SECRET
+    Run: python dexcom_readings.py
+
+License:
+    Copyright 2026. All rights reserved.
+"""
+
 import csv
 import datetime
 import os
