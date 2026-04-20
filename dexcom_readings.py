@@ -19,7 +19,7 @@ import os
 import signal
 import sys
 import time
-from typing import Any
+from typing import Any, Optional
 
 from pydexcom import Dexcom  # Dexcom Share API client
 
@@ -80,7 +80,7 @@ def retry_with_backoff(
         func: Any,
         max_attempts: int = RETRY_MAX_ATTEMPTS,
         initial_delay: float = RETRY_INITIAL_DELAY_SECONDS,
-        max_delay: float = RETRY_MAX_DELAY_SECONDS) -> Any | None:
+        max_delay: float = RETRY_MAX_DELAY_SECONDS) -> Optional[Any]:
     """Executes a function with exponential backoff retry for transient failures.
 
     Retries the function on network-related exceptions, doubling the delay
@@ -144,7 +144,7 @@ def handle_shutdown_signal(signum: int, frame: Any) -> None:
     shutdown_requested = True
 
 
-def initialize_dexcom_client() -> Any | None:
+def initialize_dexcom_client() -> Optional[Any]:
     """Initializes and authenticates a Dexcom Share API client.
 
     Reads credentials from environment variables (DEXCOM_USERNAME,
@@ -184,7 +184,7 @@ def initialize_dexcom_client() -> Any | None:
         logging.error(f"Error initializing Dexcom client: {e}")
         return None
 
-def get_latest_glucose_reading(dexcom_client: Any) -> Any | None:
+def get_latest_glucose_reading(dexcom_client: Any) -> Optional[Any]:
     """Fetches the most recent glucose reading from the Dexcom API.
 
     Uses retry logic with exponential backoff for transient failures.
