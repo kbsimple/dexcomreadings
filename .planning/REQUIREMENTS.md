@@ -5,7 +5,7 @@
 ### Project Infrastructure
 
 - [x] **INFRA-01**: Add `requirements.txt` with pinned versions for `pydexcom` and `requests`
-- [ ] **INFRA-02**: Add `README.md` with installation, configuration, and usage documentation
+- [x] **INFRA-02**: Add `README.md` with installation, configuration, and usage documentation
 
 ### Configuration
 
@@ -18,9 +18,9 @@
 
 ### Testing
 
-- [ ] **TEST-01**: Fix test mocks to use `logging` instead of `builtins.print`
-- [ ] **TEST-02**: Add tests for `upload_to_nightscout()` function
-- [ ] **TEST-03**: Use `sys.exit()` consistently (replace `exit()` calls)
+- [x] **TEST-01**: Fix test mocks to use `logging` instead of `builtins.print`
+- [x] **TEST-02**: Add tests for `upload_to_nightscout()` function
+- [x] **TEST-03**: Use `sys.exit()` consistently (replace `exit()` calls)
 
 ### Style Guide Compliance
 
@@ -69,10 +69,10 @@
 | CONF-01 | Phase 2 | Complete |
 | ROBUST-01 | Phase 2 | Complete |
 | ROBUST-02 | Phase 2 | Complete |
-| TEST-01 | Phase 3 | Pending |
-| TEST-02 | Phase 3 | Pending |
-| TEST-03 | Phase 3 | Pending |
-| INFRA-02 | Phase 3 | Pending |
+| TEST-01 | Phase 3 | Complete |
+| TEST-02 | Phase 3 | Complete |
+| TEST-03 | Phase 3 | Complete |
+| INFRA-02 | Phase 3 | Complete |
 
 ---
 *Last updated: 2026-04-19*
