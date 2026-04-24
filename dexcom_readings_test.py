@@ -1,15 +1,25 @@
-import unittest
-from unittest.mock import patch, MagicMock, mock_open, call
+"""Unit tests for the dexcom_readings module.
+
+This module provides a suite of tests to verify the functionality of
+Dexcom CGM data polling and forwarding to Nightscout.
+"""
 import datetime
+import logging
 import os
 import sys
-import logging
+import unittest
+from unittest.mock import MagicMock, mock_open, patch
 
 # Assuming dexcom_readings.py is in the same directory or accessible in PYTHONPATH
 import dexcom_readings
 
 # Helper to create mock glucose reading objects similar to what pydexcom might return
 class MockGlucoseReading:
+    """A helper class to mock glucose reading objects from pydexcom.
+
+    Provides basic attributes and comparison logic to simulate
+    pydexcom.GlucoseReading behavior.
+    """
     def __init__(self, value, trend_description, trend_arrow, dt_obj):
         self.value = value
         self.trend_description = trend_description
@@ -21,7 +31,13 @@ class MockGlucoseReading:
             return self.datetime > other_datetime
         return NotImplemented
 
+
 class TestDexcomReadings(unittest.TestCase):
+    """Tests for the core logic in dexcom_readings.py.
+
+    Verifies initialization, data retrieval, CSV logging, and
+    Nightscout upload functionality.
+    """
 
     def setUp(self):
         # Store original sys.exit to restore it if needed
@@ -34,12 +50,13 @@ class TestDexcomReadings(unittest.TestCase):
     @patch('dexcom_readings.logging.info')
     @patch('sys.exit')
     def test_initialize_dexcom_client_success_us(self, mock_exit, mock_log_info, mock_pydexcom_dexcom):
+        """Test successful Dexcom client initialization for US region."""
         mock_client_instance = MagicMock()
         mock_pydexcom_dexcom.return_value = mock_client_instance
 
-        with patch('dexcom_readings.DEXCOM_USERNAME', 'testuser'), \
-             patch('dexcom_readings.DEXCOM_PASSWORD', 'testpassword'), \
-             patch('dexcom_readings.DEXCOM_REGION', 'us'):
+        with (patch('dexcom_readings.DEXCOM_USERNAME', 'testuser'),
+              patch('dexcom_readings.DEXCOM_PASSWORD', 'testpassword'),
+              patch('dexcom_readings.DEXCOM_REGION', 'us')):
             client = dexcom_readings.initialize_dexcom_client()
 
         self.assertEqual(client, mock_client_instance)
@@ -50,12 +67,13 @@ class TestDexcomReadings(unittest.TestCase):
     @patch('dexcom_readings.logging.info')
     @patch('sys.exit')
     def test_initialize_dexcom_client_success_ous(self, mock_exit, mock_log_info, mock_pydexcom_dexcom):
+        """Test successful Dexcom client initialization for OUS region."""
         mock_client_instance = MagicMock()
         mock_pydexcom_dexcom.return_value = mock_client_instance
 
-        with patch('dexcom_readings.DEXCOM_USERNAME', 'testuser'), \
-             patch('dexcom_readings.DEXCOM_PASSWORD', 'testpassword'), \
-             patch('dexcom_readings.DEXCOM_REGION', 'ous'):
+        with (patch('dexcom_readings.DEXCOM_USERNAME', 'testuser'),
+              patch('dexcom_readings.DEXCOM_PASSWORD', 'testpassword'),
+              patch('dexcom_readings.DEXCOM_REGION', 'ous')):
             client = dexcom_readings.initialize_dexcom_client()
 
         self.assertEqual(client, mock_client_instance)
@@ -65,10 +83,10 @@ class TestDexcomReadings(unittest.TestCase):
     @patch('dexcom_readings.Dexcom')
     @patch('dexcom_readings.logging.error')
     def test_initialize_dexcom_client_missing_username(self, mock_log_error, mock_pydexcom_dexcom):
-        with patch.dict(os.environ, {"DEXCOM_PASSWORD": "testpassword"}, clear=True):
-            with patch('dexcom_readings.DEXCOM_USERNAME', None), \
-                 patch('dexcom_readings.DEXCOM_PASSWORD', "testpassword"):
-                client = dexcom_readings.initialize_dexcom_client()
+        """Test initialization failure when username is missing."""
+        with (patch('dexcom_readings.DEXCOM_USERNAME', None),
+              patch('dexcom_readings.DEXCOM_PASSWORD', "testpassword")):
+            client = dexcom_readings.initialize_dexcom_client()
 
         self.assertIsNone(client)
         mock_log_error.assert_called()
@@ -77,10 +95,10 @@ class TestDexcomReadings(unittest.TestCase):
     @patch('dexcom_readings.Dexcom')
     @patch('dexcom_readings.logging.error')
     def test_initialize_dexcom_client_missing_password(self, mock_log_error, mock_pydexcom_dexcom):
-        with patch.dict(os.environ, {"DEXCOM_USERNAME": "testuser"}, clear=True):
-             with patch('dexcom_readings.DEXCOM_USERNAME', "testuser"), \
-                  patch('dexcom_readings.DEXCOM_PASSWORD', None):
-                client = dexcom_readings.initialize_dexcom_client()
+        """Test initialization failure when password is missing."""
+        with (patch('dexcom_readings.DEXCOM_USERNAME', "testuser"),
+              patch('dexcom_readings.DEXCOM_PASSWORD', None)):
+            client = dexcom_readings.initialize_dexcom_client()
 
         self.assertIsNone(client)
         mock_log_error.assert_called()
@@ -89,11 +107,12 @@ class TestDexcomReadings(unittest.TestCase):
     @patch('dexcom_readings.Dexcom')
     @patch('dexcom_readings.logging.error')
     def test_initialize_dexcom_client_api_error(self, mock_log_error, mock_pydexcom_dexcom):
+        """Test initialization failure when Dexcom API throws an exception."""
         mock_pydexcom_dexcom.side_effect = Exception("API Connection Failed")
 
-        with patch('dexcom_readings.DEXCOM_USERNAME', 'testuser'), \
-             patch('dexcom_readings.DEXCOM_PASSWORD', 'testpassword'), \
-             patch('dexcom_readings.DEXCOM_REGION', 'us'):
+        with (patch('dexcom_readings.DEXCOM_USERNAME', 'testuser'),
+              patch('dexcom_readings.DEXCOM_PASSWORD', 'testpassword'),
+              patch('dexcom_readings.DEXCOM_REGION', 'us')):
             client = dexcom_readings.initialize_dexcom_client()
 
         self.assertIsNone(client)
@@ -101,6 +120,7 @@ class TestDexcomReadings(unittest.TestCase):
 
     @patch('dexcom_readings.logging.error')
     def test_get_latest_glucose_reading_success(self, mock_log_error):
+        """Test successful retrieval of the latest glucose reading."""
         mock_dexcom_client = MagicMock()
         expected_reading = MockGlucoseReading(100, "Flat", "→", datetime.datetime.utcnow())
         mock_dexcom_client.get_current_glucose_reading.return_value = expected_reading
@@ -112,11 +132,13 @@ class TestDexcomReadings(unittest.TestCase):
         mock_log_error.assert_not_called()
 
     def test_get_latest_glucose_reading_no_client(self):
+        """Test that reading is None when no Dexcom client is provided."""
         reading = dexcom_readings.get_latest_glucose_reading(None)
         self.assertIsNone(reading)
 
     @patch('dexcom_readings.logging.error')
     def test_get_latest_glucose_reading_api_error(self, mock_log_error):
+        """Test that reading is None when Dexcom API returns an error."""
         mock_dexcom_client = MagicMock()
         # Use a network exception that retry_with_backoff catches
         mock_dexcom_client.get_current_glucose_reading.side_effect = ConnectionError("Fetch Error")
@@ -130,6 +152,7 @@ class TestDexcomReadings(unittest.TestCase):
     @patch('builtins.open', new_callable=mock_open)
     @patch('os.path.isfile')
     def test_write_to_csv_new_file(self, mock_isfile, mock_open_func, mock_csv_writer_constructor):
+        """Test writing glucose data to a new CSV file (includes header)."""
         mock_isfile.return_value = False
         mock_csv_writer_instance = MagicMock()
         mock_csv_writer_constructor.return_value = mock_csv_writer_instance
@@ -153,6 +176,7 @@ class TestDexcomReadings(unittest.TestCase):
     @patch('builtins.open', new_callable=mock_open)
     @patch('os.path.isfile')
     def test_write_to_csv_existing_file(self, mock_isfile, mock_open_func, mock_csv_writer_constructor):
+        """Test writing glucose data to an existing CSV file (no header)."""
         mock_isfile.return_value = True
         mock_csv_writer_instance = MagicMock()
         mock_csv_writer_constructor.return_value = mock_csv_writer_instance
@@ -173,16 +197,16 @@ class TestDexcomReadings(unittest.TestCase):
     @patch('dexcom_readings.retry_with_backoff')
     def test_upload_to_nightscout_missing_url(self, mock_retry):
         """Test that upload is skipped when NIGHTSCOUT_URL is not set."""
-        with patch('dexcom_readings.NIGHTSCOUT_URL', None), \
-             patch('dexcom_readings.NIGHTSCOUT_API_SECRET', "secret"):
+        with (patch('dexcom_readings.NIGHTSCOUT_URL', None),
+              patch('dexcom_readings.NIGHTSCOUT_API_SECRET', "secret")):
             dexcom_readings.upload_to_nightscout(100, datetime.datetime.utcnow(), "→")
         mock_retry.assert_not_called()
 
     @patch('dexcom_readings.retry_with_backoff')
     def test_upload_to_nightscout_missing_secret(self, mock_retry):
         """Test that upload is skipped when NIGHTSCOUT_API_SECRET is not set."""
-        with patch('dexcom_readings.NIGHTSCOUT_URL', "https://example.com"), \
-             patch('dexcom_readings.NIGHTSCOUT_API_SECRET', None):
+        with (patch('dexcom_readings.NIGHTSCOUT_URL', "https://example.com"),
+              patch('dexcom_readings.NIGHTSCOUT_API_SECRET', None)):
             dexcom_readings.upload_to_nightscout(100, datetime.datetime.utcnow(), "→")
         mock_retry.assert_not_called()
 
@@ -229,6 +253,7 @@ class TestDexcomReadings(unittest.TestCase):
     @patch('dexcom_readings.logging.error')
     @patch('dexcom_readings.initialize_dexcom_client')
     def test_main_init_failure(self, mock_init_client, mock_log_error, mock_signal):
+        """Test that main() exits when Dexcom client initialization fails."""
         mock_init_client.return_value = None
 
         with self.assertRaises(SystemExit):
@@ -247,6 +272,7 @@ class TestDexcomReadings(unittest.TestCase):
     def test_main_loop_new_reading(self, mock_datetime_module, mock_log_info,
                                    mock_init_client, mock_get_reading,
                                    mock_write_csv, mock_sleep, mock_signal):
+        """Test the main loop when a new glucose reading is retrieved."""
         mock_dex_client = MagicMock()
         mock_init_client.return_value = mock_dex_client
 
@@ -284,6 +310,7 @@ class TestDexcomReadings(unittest.TestCase):
     def test_main_loop_no_new_reading(self, mock_datetime_module, mock_log_info,
                                       mock_init_client, mock_get_reading,
                                       mock_write_csv, mock_sleep, mock_signal):
+        """Test the main loop when no new glucose reading is available."""
         mock_dex_client = MagicMock()
         mock_init_client.return_value = mock_dex_client
 
@@ -310,6 +337,7 @@ class TestDexcomReadings(unittest.TestCase):
     def test_main_loop_could_not_retrieve_reading(self, mock_datetime_module, mock_log_warning,
                                                   mock_init_client, mock_get_reading,
                                                   mock_write_csv, mock_sleep, mock_signal):
+        """Test the main loop when a reading cannot be retrieved from API."""
         mock_dex_client = MagicMock()
         mock_init_client.return_value = mock_dex_client
 
@@ -337,6 +365,7 @@ class TestDexcomReadings(unittest.TestCase):
     @patch('builtins.open', new_callable=mock_open)
     @patch('os.path.isfile')
     def test_script_execution_writes_header_if_new(self, mock_isfile, mock_open_func, mock_csv_writer_constructor, mock_main_func):
+        """Test that the CSV header is written if the file doesn't exist."""
         mock_isfile.return_value = False
         mock_csv_writer_instance = MagicMock()
         mock_csv_writer_constructor.return_value = mock_csv_writer_instance
@@ -354,10 +383,7 @@ class TestDexcomReadings(unittest.TestCase):
         mock_csv_writer_instance.writerow.assert_called_once_with(dexcom_readings.CSV_HEADERS)
 
     def test_os_environ_patch_behavior(self):
-        """
-        Tests the behavior of patch.dict for os.environ to ensure
-        variables are set within the context and restored afterward.
-        """
+        """Verify that patch.dict correctly restores os.environ after use."""
         test_var_name = "MY_TEST_ENV_VAR_PATCH_BEHAVIOR"
         original_value = os.environ.get(test_var_name)
 
