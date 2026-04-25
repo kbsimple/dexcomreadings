@@ -13,6 +13,7 @@ Dexcom Readings - A Dexcom CGM data polling and forwarding service. Fetches real
 - [x] **Phase 1: Style Guide & Infrastructure** - Establish Google Python Style Guide compliance and project documentation foundation (completed 2026-04-19)
 - [x] **Phase 2: Configuration & Robustness** - Add operational flexibility with configurable polling and resilient error handling (completed 2026-04-19)
 - [x] **Phase 3: Testing & Documentation** - Verify all changes work correctly and complete user-facing documentation (completed 2026-04-20)
+- [ ] **Phase 4: System Daemon Compatibility** - Upgrade the script to be production-ready as a system daemon
 
 ---
 
@@ -83,6 +84,25 @@ Plans:
 
 ---
 
+### Phase 4: System Daemon Compatibility
+
+**Goal:** Script is production-ready for deployment as a system daemon with proper file paths, logging, and service templates.
+
+**Depends on:** Phase 3
+
+**Requirements:** DAEMON-01, DAEMON-02, DAEMON-03, DAEMON-04, DAEMON-05
+
+**Success Criteria** (what must be TRUE):
+  1. All file paths are absolute and configurable via environment variables
+  2. PID file prevents multiple instances from running
+  3. Logging supports syslog and file output with configurable destinations
+  4. SIGHUP triggers log file reopen (for log rotation)
+  5. Service file templates for systemd and launchd are provided and documented
+
+**Plans:** Not planned yet
+
+---
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -90,7 +110,8 @@ Plans:
 | 1. Style Guide & Infrastructure | 4/4 | Complete    | 2026-04-19 |
 | 2. Configuration & Robustness | 2/2 | Complete    | 2026-04-19 |
 | 3. Testing & Documentation | 1/1 | Complete    | 2026-04-20 |
+| 4. System Daemon Compatibility | 0/? | Not Started | — |
 
 ---
 
-*Last updated: 2026-04-19*
+*Last updated: 2026-04-24*
