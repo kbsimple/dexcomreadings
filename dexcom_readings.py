@@ -15,6 +15,7 @@ License:
 import csv
 import datetime
 import logging
+from logging.handlers import SysLogHandler, WatchedFileHandler
 import os
 import signal
 import sys
@@ -86,6 +87,10 @@ LOG_FILE = os.path.abspath(
         os.path.join(DEFAULT_STATE_DIR, "dexcom-readings", "dexcom-readings.log")
     )
 )
+
+# Logging configuration
+LOG_DESTINATION = os.environ.get("DEXCOM_LOG_DESTINATION", "console").lower()
+LOG_LEVEL = os.environ.get("DEXCOM_LOG_LEVEL", "INFO").upper()
 
 CSV_HEADERS = [
     "check_timestamp_utc", "new_reading_received", "glucose_value_mgdl",
@@ -178,13 +183,69 @@ class PIDFile:
                 pass  # File may already be deleted
 
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s')
+def setup_logging() -> logging.Logger:
+    """Configure logging based on DEXCOM_LOG_DESTINATION environment variable.
 
-# Suppress excessive logging from requests or other libraries if needed
-# logging.getLogger("requests").setLevel(logging.WARNING)
+    Supports three destinations:
+    - console: StreamHandler to stderr (default)
+    - file: WatchedFileHandler for log rotation support
+    - syslog: SysLogHandler for Unix syslog integration
+
+    Returns:
+        logging.Logger: The configured root logger.
+    """
+    logger = logging.getLogger()
+    logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
+
+    formatter = logging.Formatter(
+        '%(asctime)s - %(levelname)s - %(message)s'
+    )
+
+    if LOG_DESTINATION == "file":
+        # Ensure log directory exists
+        log_dir = os.path.dirname(LOG_FILE)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+
+        handler = WatchedFileHandler(LOG_FILE, encoding="utf-8")
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logging.info(f"Logging to file: {LOG_FILE}")
+
+    elif LOG_DESTINATION == "syslog":
+        # Try common syslog addresses
+        syslog_addresses = [
+            "/dev/log",       # Linux
+            "/var/run/syslog",  # macOS (may not work on macOS 12+)
+        ]
+        handler = None
+        for address in syslog_addresses:
+            if os.path.exists(address):
+                handler = SysLogHandler(address=address)
+                break
+
+        if handler is None:
+            # Fallback to console if syslog not available
+            logging.warning(
+                "Syslog not available, falling back to console logging"
+            )
+            handler = logging.StreamHandler()
+
+        # Syslog format typically includes the program name
+        syslog_formatter = logging.Formatter(
+            'dexcom-readings[%(process)d]: %(levelname)s - %(message)s'
+        )
+        handler.setFormatter(syslog_formatter)
+        logger.addHandler(handler)
+        logging.info("Logging to syslog")
+
+    else:  # console (default)
+        handler = logging.StreamHandler()
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    return logger
+
 
 # Shutdown flag for graceful termination
 shutdown_requested = False
@@ -457,6 +518,8 @@ def _run_main_loop() -> None:
     Raises:
         SystemExit: If Dexcom client initialization fails (exit code 1).
     """
+    setup_logging()  # Initialize logging based on LOG_DESTINATION
+
     last_known_glucose_timestamp = None  # Local state, not global
 
     dexcom_client = initialize_dexcom_client()
