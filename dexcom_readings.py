@@ -19,6 +19,7 @@ import os
 import signal
 import sys
 import time
+from pathlib import Path
 from typing import Any, Optional
 
 from pydexcom import Dexcom  # Dexcom Share API client
@@ -57,8 +58,34 @@ RETRY_MAX_ATTEMPTS = 3
 RETRY_INITIAL_DELAY_SECONDS = 1
 RETRY_MAX_DELAY_SECONDS = 30
 
-# CSV file for logging
-OUTPUT_CSV_FILE = "dexcom_readings_log.csv"
+# XDG Base Directory Specification defaults
+DEFAULT_DATA_DIR = os.environ.get(
+    "XDG_DATA_HOME", str(Path.home() / ".local" / "share")
+)
+DEFAULT_STATE_DIR = os.environ.get(
+    "XDG_STATE_HOME", str(Path.home() / ".local" / "state")
+)
+
+# Configurable file paths (all absolute)
+OUTPUT_CSV_FILE = os.path.abspath(
+    os.environ.get(
+        "DEXCOM_CSV_PATH",
+        os.path.join(DEFAULT_DATA_DIR, "dexcom-readings", "readings.csv")
+    )
+)
+PID_FILE = os.path.abspath(
+    os.environ.get(
+        "DEXCOM_PID_FILE",
+        os.path.join(DEFAULT_STATE_DIR, "dexcom-readings", "dexcom-readings.pid")
+    )
+)
+LOG_FILE = os.path.abspath(
+    os.environ.get(
+        "DEXCOM_LOG_FILE",
+        os.path.join(DEFAULT_STATE_DIR, "dexcom-readings", "dexcom-readings.log")
+    )
+)
+
 CSV_HEADERS = [
     "check_timestamp_utc", "new_reading_received", "glucose_value_mgdl",
     "glucose_timestamp_utc", "trend_description", "trend_arrow"
