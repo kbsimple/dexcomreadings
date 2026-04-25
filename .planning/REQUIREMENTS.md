@@ -39,7 +39,7 @@
 - [x] **DAEMON-02**: Add PID file single-instance enforcement with fcntl locking
 - [ ] **DAEMON-03**: Implement configurable logging (syslog, file, console)
 - [ ] **DAEMON-04**: Add SIGHUP handler for log file reopening
-- [ ] **DAEMON-05**: Provide systemd and launchd service templates
+- [x] **DAEMON-05**: Provide systemd and launchd service templates
 
 ---
 
@@ -85,7 +85,7 @@
 | DAEMON-02 | Phase 4 | Complete |
 | DAEMON-03 | Phase 4 | Pending |
 | DAEMON-04 | Phase 4 | Pending |
-| DAEMON-05 | Phase 4 | Pending |
+| DAEMON-05 | Phase 4 | Complete |
 
 ---
 *Last updated: 2026-04-25*
