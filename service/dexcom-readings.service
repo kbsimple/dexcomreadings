@@ -1,0 +1,64 @@
+# Dexcom Readings - systemd Service Unit Template
+#
+# Installation (Linux with systemd):
+# 1. Copy this file to /etc/systemd/system/dexcom-readings.service
+# 2. Create environment file: /etc/default/dexcom-readings
+# 3. Create user: sudo useradd -r -s /bin/false dexcom
+# 4. Create directories:
+#    sudo mkdir -p /opt/dexcom-readings
+#    sudo mkdir -p /var/lib/dexcom-readings
+#    sudo chown dexcom:dexcom /var/lib/dexcom-readings
+# 5. Copy application files to /opt/dexcom-readings/
+# 6. Create virtual environment and install dependencies:
+#    cd /opt/dexcom-readings
+#    python3 -m venv venv
+#    ./venv/bin/pip install -r requirements.txt
+# 7. Enable and start:
+#    sudo systemctl daemon-reload
+#    sudo systemctl enable dexcom-readings
+#    sudo systemctl start dexcom-readings
+#
+# Environment file format (/etc/default/dexcom-readings):
+# DEXCOM_USERNAME="your_username"
+# DEXCOM_PASSWORD="your_password"
+# DEXCOM_REGION="us"
+# NIGHTSCOUT_URL="https://your-nightscout.example.com"
+# NIGHTSCOUT_API_SECRET="your_secret"
+# POLLING_INTERVAL_SECONDS="60"
+# DEXCOM_LOG_DESTINATION="file"
+# DEXCOM_LOG_FILE="/var/log/dexcom-readings/dexcom-readings.log"
+# DEXCOM_CSV_PATH="/var/lib/dexcom-readings/readings.csv"
+# DEXCOM_PID_FILE="/var/run/dexcom-readings/dexcom-readings.pid"
+
+[Unit]
+Description=Dexcom CGM Readings Collector
+Documentation=https://github.com/user/dexcom-readings
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dexcom
+Group=dexcom
+WorkingDirectory=/opt/dexcom-readings
+ExecStart=/opt/dexcom-readings/venv/bin/python /opt/dexcom-readings/dexcom_readings.py
+Restart=on-failure
+RestartSec=5s
+
+# Environment variables
+EnvironmentFile=/etc/default/dexcom-readings
+
+# Logging to systemd journal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dexcom-readings
+
+# Security sandboxing
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/dexcom-readings /var/log/dexcom-readings /var/run/dexcom-readings
+
+[Install]
+WantedBy=multi-user.target
