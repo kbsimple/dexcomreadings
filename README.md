@@ -138,6 +138,114 @@ python dexcom_readings.py
 - Verify the polling interval is appropriate (default 60 seconds)
 - Review the CSV log for error patterns
 
+## Daemon Deployment
+
+The service can be deployed as a system daemon for continuous, unattended operation.
+
+### Environment Variables for Daemon Mode
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DEXCOM_LOG_DESTINATION` | Logging destination: `console`, `file`, or `syslog` | `console` |
+| `DEXCOM_LOG_LEVEL` | Log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` | `INFO` |
+| `DEXCOM_LOG_FILE` | Path to log file (when `DEXCOM_LOG_DESTINATION=file`) | `~/.local/state/dexcom-readings/dexcom-readings.log` |
+| `DEXCOM_CSV_PATH` | Path to CSV data file | `~/.local/share/dexcom-readings/readings.csv` |
+| `DEXCOM_PID_FILE` | Path to PID file for single-instance locking | `~/.local/state/dexcom-readings/dexcom-readings.pid` |
+
+### Linux (systemd)
+
+1. Copy the service template:
+   ```bash
+   sudo cp service/dexcom-readings.service /etc/systemd/system/
+   ```
+
+2. Create the environment file `/etc/default/dexcom-readings`:
+   ```bash
+   DEXCOM_USERNAME="your_username"
+   DEXCOM_PASSWORD="your_password"
+   DEXCOM_REGION="us"
+   NIGHTSCOUT_URL="https://your-nightscout.example.com"
+   NIGHTSCOUT_API_SECRET="your_secret"
+   DEXCOM_LOG_DESTINATION="file"
+   DEXCOM_LOG_FILE="/var/log/dexcom-readings/dexcom-readings.log"
+   ```
+
+3. Create user and directories:
+   ```bash
+   sudo useradd -r -s /bin/false dexcom
+   sudo mkdir -p /opt/dexcom-readings /var/lib/dexcom-readings /var/log/dexcom-readings
+   sudo chown dexcom:dexcom /var/lib/dexcom-readings /var/log/dexcom-readings
+   ```
+
+4. Install the application:
+   ```bash
+   # Copy files to /opt/dexcom-readings/
+   cd /opt/dexcom-readings
+   python3 -m venv venv
+   ./venv/bin/pip install -r requirements.txt
+   ```
+
+5. Enable and start the service:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable dexcom-readings
+   sudo systemctl start dexcom-readings
+   ```
+
+6. View logs:
+   ```bash
+   journalctl -u dexcom-readings -f
+   ```
+
+### macOS (launchd)
+
+1. Copy the plist template:
+   ```bash
+   cp service/com.dexcom.readings.plist ~/Library/LaunchAgents/
+   ```
+
+2. Edit the plist to set your credentials and paths (see comments in the file).
+
+3. Create the installation directory:
+   ```bash
+   mkdir -p /opt/dexcom-readings
+   cd /opt/dexcom-readings
+   python3 -m venv venv
+   ./venv/bin/pip install -r requirements.txt
+   # Copy dexcom_readings.py to this directory
+   ```
+
+4. Load the service:
+   ```bash
+   launchctl load ~/Library/LaunchAgents/com.dexcom.readings.plist
+   ```
+
+5. Check status:
+   ```bash
+   launchctl list | grep dexcom
+   ```
+
+### Log Rotation
+
+For file-based logging, use external log rotation tools:
+
+**Linux (logrotate):**
+Create `/etc/logrotate.d/dexcom-readings`:
+```
+/var/log/dexcom-readings/*.log {
+    daily
+    rotate 7
+    compress
+    missingok
+    notifempty
+    postrotate
+        systemctl kill -s HUP dexcom-readings.service
+    endscript
+}
+```
+
+The `SIGHUP` signal triggers the daemon to reopen the log file after rotation.
+
 ## License
 
 Copyright 2026. All rights reserved.
