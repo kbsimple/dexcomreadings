@@ -250,6 +250,9 @@ def setup_logging() -> logging.Logger:
 # Shutdown flag for graceful termination
 shutdown_requested = False
 
+# SIGHUP flag for log rotation
+log_reopen_requested = False
+
 
 def retry_with_backoff(
         func: Any,
@@ -317,6 +320,41 @@ def handle_shutdown_signal(signum: int, frame: Any) -> None:
     signal_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
     logging.info(f"Received {signal_name}, completing current cycle...")
     shutdown_requested = True
+
+
+def handle_sighup(signum: int, frame: Any) -> None:
+    """Handles SIGHUP for log file reopening.
+
+    Sets the log_reopen_requested flag to trigger log file reopen
+    on the next polling cycle. Used by log rotation tools to notify
+    the daemon that the log file has been rotated.
+
+    Args:
+        signum: The signal number (SIGHUP).
+        frame: The current stack frame (unused).
+
+    Returns:
+        None
+    """
+    global log_reopen_requested
+    log_reopen_requested = True
+    logging.info("Received SIGHUP, will reopen log file on next cycle")
+
+
+def check_and_reopen_logs() -> None:
+    """Reopen log handlers if SIGHUP was received.
+
+    Called at the start of each polling cycle to handle log rotation.
+    Only affects WatchedFileHandler instances (file logging).
+    """
+    global log_reopen_requested
+    if log_reopen_requested:
+        logger = logging.getLogger()
+        for handler in logger.handlers:
+            if isinstance(handler, WatchedFileHandler):
+                handler.reopenIfNeeded()
+        log_reopen_requested = False
+        logging.info("Log file reopened")
 
 
 def initialize_dexcom_client() -> Optional[Any]:
@@ -492,6 +530,13 @@ def main() -> None:
     signal.signal(signal.SIGTERM, handle_shutdown_signal)
     signal.signal(signal.SIGINT, handle_shutdown_signal)
 
+    # Register SIGHUP handler (Unix only)
+    try:
+        signal.signal(signal.SIGHUP, handle_sighup)
+    except AttributeError:
+        # SIGHUP not available on Windows
+        pass
+
     # Acquire PID file lock for single-instance enforcement
     try:
         with PIDFile(PID_FILE) as pid:
@@ -537,6 +582,9 @@ def _run_main_loop() -> None:
           f"Logging to {OUTPUT_CSV_FILE}")
 
     while not shutdown_requested:
+        # Handle log rotation if SIGHUP was received
+        check_and_reopen_logs()
+
         check_timestamp_utc = datetime.datetime.utcnow()
         new_reading_received = False
 
