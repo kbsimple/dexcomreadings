@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+    Dexcom Readings - launchd Service Template for macOS
+
+    Installation:
+    1. Copy this file to ~/Library/LaunchAgents/ (user) or /Library/LaunchDaemons/ (system)
+       For user-level: ~/Library/LaunchAgents/com.dexcom.readings.plist
+       For system-level: /Library/LaunchDaemons/com.dexcom.readings.plist
+
+    2. Edit this file to set your credentials and paths:
+       - Replace /opt/dexcom-readings with your installation path
+       - Replace YOUR_USERNAME_HERE with your Dexcom username
+       - Replace YOUR_PASSWORD_HERE with your Dexcom password
+       - Update other environment variables as needed
+
+    3. Create installation directory:
+       mkdir -p /opt/dexcom-readings
+       cd /opt/dexcom-readings
+       python3 -m venv venv
+       ./venv/bin/pip install -r requirements.txt
+       # Copy dexcom_readings.py to this directory
+
+    4. Load the service:
+       launchctl load ~/Library/LaunchAgents/com.dexcom.readings.plist
+
+    5. Check status:
+       launchctl list | grep dexcom
+
+    6. View logs:
+       tail -f /var/log/dexcom-readings.log
+
+    To unload:
+       launchctl unload ~/Library/LaunchAgents/com.dexcom.readings.plist
+
+    IMPORTANT: launchd does not expand shell variables. Use absolute paths.
+    -->
+    <key>Label</key>
+    <string>com.dexcom.readings</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <!-- UPDATE THIS: Path to Python in your virtual environment -->
+        <string>/opt/dexcom-readings/venv/bin/python</string>
+        <!-- UPDATE THIS: Path to the script -->
+        <string>/opt/dexcom-readings/dexcom_readings.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <!-- UPDATE THIS: Directory containing the script -->
+    <string>/opt/dexcom-readings</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- Required: Your Dexcom credentials -->
+        <key>DEXCOM_USERNAME</key>
+        <string>YOUR_USERNAME_HERE</string>
+        <key>DEXCOM_PASSWORD</key>
+        <string>YOUR_PASSWORD_HERE</string>
+
+        <!-- Optional: Region (us, ous, jp) -->
+        <key>DEXCOM_REGION</key>
+        <string>us</string>
+
+        <!-- Optional: Nightscout configuration -->
+        <key>NIGHTSCOUT_URL</key>
+        <string></string>
+        <key>NIGHTSCOUT_API_SECRET</key>
+        <string></string>
+
+        <!-- Optional: Polling interval in seconds -->
+        <key>POLLING_INTERVAL_SECONDS</key>
+        <string>60</string>
+
+        <!-- Optional: Logging configuration -->
+        <key>DEXCOM_LOG_DESTINATION</key>
+        <string>file</string>
+        <key>DEXCOM_LOG_FILE</key>
+        <string>/var/log/dexcom-readings.log</string>
+
+        <!-- Optional: Data paths -->
+        <key>DEXCOM_CSV_PATH</key>
+        <string>/var/lib/dexcom-readings/readings.csv</string>
+        <key>DEXCOM_PID_FILE</key>
+        <string>/var/run/dexcom-readings.pid</string>
+    </dict>
+
+    <!-- Start when loaded -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Restart on failure -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- Log output -->
+    <key>StandardOutPath</key>
+    <string>/var/log/dexcom-readings.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/dexcom-readings.log</string>
+
+    <!-- Process type: background -->
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
