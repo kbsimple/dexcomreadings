@@ -396,17 +396,17 @@ CSV_PATH = get_absolute_path(
 | A1 | XDG Base Directory paths are appropriate defaults | Pattern 4 | May need different defaults for different platforms |
 | A2 | `/var/run/syslog` is the syslog socket on macOS | Code Examples | macOS 12+ changed syslog behavior; may need fallback to file logging only |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `python-daemon` be a dependency?**
    - What we know: Modern service managers (systemd, launchd) make self-daemonization unnecessary.
    - What's unclear: Whether users might run the script standalone without a service manager.
-   - Recommendation: Make it an optional dependency. Primary use case is service-managed deployment.
+   - **RESOLVED:** Make it an optional dependency. Primary use case is service-managed deployment. Not added to requirements.txt.
 
 2. **macOS syslog availability?**
    - What we know: macOS 12+ Monterey changed syslog daemon behavior.
    - What's unclear: Whether local syslog is reliable on modern macOS.
-   - Recommendation: Default to file logging on macOS. Document syslog as Linux-focused.
+   - **RESOLVED:** Default to file logging on macOS. Document syslog as Linux-focused. The setup_logging() function will attempt syslog sockets and fall back to console if unavailable.
 
 ## Environment Availability
 
