@@ -6,7 +6,9 @@ Dexcom CGM data polling and forwarding to Nightscout.
 import datetime
 import logging
 import os
+import signal
 import sys
+import tempfile
 import unittest
 from unittest.mock import MagicMock, mock_open, patch
 
@@ -403,6 +405,144 @@ class TestDexcomReadings(unittest.TestCase):
 
         if original_value is not None:
             os.environ[test_var_name] = original_value
+
+class TestDaemonPaths(unittest.TestCase):
+    """Tests for configurable daemon file paths."""
+
+    def test_default_paths_are_absolute(self):
+        """Verify default paths are absolute (not relative)."""
+        # Re-import to get fresh constants
+        import importlib
+        importlib.reload(dexcom_readings)
+
+        self.assertTrue(
+            os.path.isabs(dexcom_readings.OUTPUT_CSV_FILE),
+            f"OUTPUT_CSV_FILE should be absolute: {dexcom_readings.OUTPUT_CSV_FILE}"
+        )
+        self.assertTrue(
+            os.path.isabs(dexcom_readings.PID_FILE),
+            f"PID_FILE should be absolute: {dexcom_readings.PID_FILE}"
+        )
+        self.assertTrue(
+            os.path.isabs(dexcom_readings.LOG_FILE),
+            f"LOG_FILE should be absolute: {dexcom_readings.LOG_FILE}"
+        )
+
+    @patch.dict(os.environ, {"DEXCOM_CSV_PATH": "/custom/path/readings.csv"})
+    def test_csv_path_from_env(self):
+        """Verify DEXCOM_CSV_PATH environment variable is used."""
+        import importlib
+        importlib.reload(dexcom_readings)
+
+        self.assertEqual(
+            dexcom_readings.OUTPUT_CSV_FILE,
+            "/custom/path/readings.csv"
+        )
+
+    @patch.dict(os.environ, {"DEXCOM_PID_FILE": "/custom/run/dexcom.pid"})
+    def test_pid_path_from_env(self):
+        """Verify DEXCOM_PID_FILE environment variable is used."""
+        import importlib
+        importlib.reload(dexcom_readings)
+
+        self.assertEqual(
+            dexcom_readings.PID_FILE,
+            "/custom/run/dexcom.pid"
+        )
+
+    @patch.dict(os.environ, {"DEXCOM_LOG_FILE": "/custom/log/dexcom.log"})
+    def test_log_path_from_env(self):
+        """Verify DEXCOM_LOG_FILE environment variable is used."""
+        import importlib
+        importlib.reload(dexcom_readings)
+
+        self.assertEqual(
+            dexcom_readings.LOG_FILE,
+            "/custom/log/dexcom.log"
+        )
+
+
+class TestPIDFile(unittest.TestCase):
+    """Tests for PIDFile single-instance enforcement."""
+
+    def setUp(self):
+        """Create a temporary directory for test PID files."""
+        self.test_dir = tempfile.mkdtemp()
+        self.pid_path = os.path.join(self.test_dir, "test.pid")
+
+    def tearDown(self):
+        """Clean up temporary directory."""
+        import shutil
+        shutil.rmtree(self.test_dir, ignore_errors=True)
+
+    @patch('dexcom_readings.fcntl.flock')
+    @patch('dexcom_readings.os.getpid', return_value=12345)
+    @patch('dexcom_readings.logging.info')
+    def test_pidfile_acquires_lock(
+        self, mock_log_info, mock_getpid, mock_flock
+    ):
+        """Verify PIDFile acquires exclusive lock on enter."""
+        with dexcom_readings.PIDFile(self.pid_path) as pid:
+            # Verify flock was called with LOCK_EX | LOCK_NB
+            mock_flock.assert_called()
+            call_args = mock_flock.call_args[0]
+            # call_args[1] is the flags argument (bitwise OR of LOCK_EX | LOCK_NB)
+            flags = call_args[1]
+            self.assertTrue(
+                flags & dexcom_readings.fcntl.LOCK_EX,
+                "Should use exclusive lock"
+            )
+            self.assertTrue(
+                flags & dexcom_readings.fcntl.LOCK_NB,
+                "Should use non-blocking lock"
+            )
+
+    @patch('dexcom_readings.fcntl.flock')
+    def test_pidfile_raises_on_locked(self, mock_flock):
+        """Verify PIDFile raises RuntimeError when lock already held."""
+        import errno
+        # Simulate lock already held by another process
+        mock_flock.side_effect = BlockingIOError(
+            errno.EAGAIN, "Resource temporarily unavailable"
+        )
+
+        with self.assertRaises(RuntimeError) as context:
+            with dexcom_readings.PIDFile(self.pid_path):
+                pass
+
+        self.assertIn("already running", str(context.exception))
+
+    @patch('dexcom_readings.fcntl.flock')
+    @patch('dexcom_readings.os.unlink')
+    def test_pidfile_releases_on_exit(self, mock_unlink, mock_flock):
+        """Verify PIDFile releases lock and removes file on exit."""
+        with dexcom_readings.PIDFile(self.pid_path) as pid:
+            pass
+
+        # Verify unlock was called
+        unlock_calls = [
+            call for call in mock_flock.call_args_list
+            if dexcom_readings.fcntl.LOCK_UN in call[0]
+        ]
+        self.assertTrue(len(unlock_calls) > 0, "Should call LOCK_UN on exit")
+
+        # Verify file was unlinked
+        mock_unlink.assert_called_with(self.pid_path)
+
+    @patch('dexcom_readings.fcntl.flock')
+    @patch('builtins.open', new_callable=mock_open)
+    @patch('dexcom_readings.os.makedirs')
+    @patch('dexcom_readings.os.path.exists', return_value=False)
+    def test_pidfile_creates_directory(
+        self, mock_exists, mock_makedirs, mock_open_func, mock_flock
+    ):
+        """Verify PIDFile creates parent directory if needed."""
+        pid_path = "/nonexistent/dir/test.pid"
+        with dexcom_readings.PIDFile(pid_path) as pid:
+            pass
+
+        mock_makedirs.assert_called_with("/nonexistent/dir", exist_ok=True)
+
 
 if __name__ == '__main__':
     unittest.main()
