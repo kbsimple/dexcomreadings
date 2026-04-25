@@ -33,6 +33,14 @@
 - [x] **STYLE-07**: Add `pylint` configuration and suppress warnings appropriately
 - [x] **STYLE-08**: Encapsulate global state in a class or pass as parameter
 
+### Daemon Compatibility
+
+- [x] **DAEMON-01**: Implement absolute configurable file paths via environment variables
+- [x] **DAEMON-02**: Add PID file single-instance enforcement with fcntl locking
+- [ ] **DAEMON-03**: Implement configurable logging (syslog, file, console)
+- [ ] **DAEMON-04**: Add SIGHUP handler for log file reopening
+- [ ] **DAEMON-05**: Provide systemd and launchd service templates
+
 ---
 
 ## v2 Requirements (Deferred)
@@ -73,6 +81,11 @@
 | TEST-02 | Phase 3 | Complete |
 | TEST-03 | Phase 3 | Complete |
 | INFRA-02 | Phase 3 | Complete |
+| DAEMON-01 | Phase 4 | Complete |
+| DAEMON-02 | Phase 4 | Complete |
+| DAEMON-03 | Phase 4 | Pending |
+| DAEMON-04 | Phase 4 | Pending |
+| DAEMON-05 | Phase 4 | Pending |
 
 ---
-*Last updated: 2026-04-19*
+*Last updated: 2026-04-25*
