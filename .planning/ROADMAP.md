@@ -103,9 +103,9 @@ Plans:
 
 Plans:
 - [x] 04-01-PLAN.md — Implement absolute configurable file paths and PID file single-instance enforcement
-- [ ] 04-02-PLAN.md — Implement flexible logging destinations and SIGHUP handler for log rotation
+- [x] 04-02-PLAN.md — Implement flexible logging destinations and SIGHUP handler for log rotation
 - [x] 04-03-PLAN.md — Create systemd and launchd service templates with documentation
-- [ ] 04-04-PLAN.md — Add tests for daemon features (paths, PID, logging, SIGHUP)
+- [x] 04-04-PLAN.md — Add tests for daemon features (paths, PID, logging, SIGHUP)
 
 ---
 

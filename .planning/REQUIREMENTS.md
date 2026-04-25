@@ -37,8 +37,8 @@
 
 - [x] **DAEMON-01**: Implement absolute configurable file paths via environment variables
 - [x] **DAEMON-02**: Add PID file single-instance enforcement with fcntl locking
-- [ ] **DAEMON-03**: Implement configurable logging (syslog, file, console)
-- [ ] **DAEMON-04**: Add SIGHUP handler for log file reopening
+- [x] **DAEMON-03**: Implement configurable logging (syslog, file, console)
+- [x] **DAEMON-04**: Add SIGHUP handler for log file reopening
 - [x] **DAEMON-05**: Provide systemd and launchd service templates
 
 ---
@@ -83,8 +83,8 @@
 | INFRA-02 | Phase 3 | Complete |
 | DAEMON-01 | Phase 4 | Complete |
 | DAEMON-02 | Phase 4 | Complete |
-| DAEMON-03 | Phase 4 | Pending |
-| DAEMON-04 | Phase 4 | Pending |
+| DAEMON-03 | Phase 4 | Complete |
+| DAEMON-04 | Phase 4 | Complete |
 | DAEMON-05 | Phase 4 | Complete |
 
 ---
