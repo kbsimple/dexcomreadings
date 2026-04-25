@@ -409,6 +409,14 @@ class TestDexcomReadings(unittest.TestCase):
 class TestDaemonPaths(unittest.TestCase):
     """Tests for configurable daemon file paths."""
 
+    def tearDown(self):
+        """Reload module to restore original constants after each test."""
+        import importlib
+        # Clear any environment variables that might have been set
+        for key in ["DEXCOM_CSV_PATH", "DEXCOM_PID_FILE", "DEXCOM_LOG_FILE"]:
+            os.environ.pop(key, None)
+        importlib.reload(dexcom_readings)
+
     def test_default_paths_are_absolute(self):
         """Verify default paths are absolute (not relative)."""
         # Re-import to get fresh constants
@@ -542,6 +550,173 @@ class TestPIDFile(unittest.TestCase):
             pass
 
         mock_makedirs.assert_called_with("/nonexistent/dir", exist_ok=True)
+
+
+class TestLoggingConfig(unittest.TestCase):
+    """Tests for flexible logging configuration."""
+
+    def setUp(self):
+        """Store original handlers to restore after tests."""
+        self._original_handlers = logging.getLogger().handlers[:]
+
+    def tearDown(self):
+        """Restore original logging handlers."""
+        logger = logging.getLogger()
+        logger.handlers = self._original_handlers[:]
+
+    @patch('dexcom_readings.LOG_DESTINATION', 'console')
+    @patch('dexcom_readings.LOG_LEVEL', 'INFO')
+    def test_setup_logging_console(self):
+        """Verify console logging uses StreamHandler."""
+        logger = dexcom_readings.setup_logging()
+
+        # Should have at least one StreamHandler
+        has_stream_handler = any(
+            isinstance(h, logging.StreamHandler) and
+            not isinstance(h, logging.handlers.WatchedFileHandler)
+            for h in logger.handlers
+        )
+        self.assertTrue(
+            has_stream_handler,
+            "Console logging should use StreamHandler"
+        )
+
+    @patch('dexcom_readings.LOG_DESTINATION', 'file')
+    @patch('dexcom_readings.LOG_LEVEL', 'INFO')
+    @patch('dexcom_readings.LOG_FILE', '/tmp/test_dexcom.log')
+    @patch('dexcom_readings.os.path.exists', return_value=True)
+    @patch('dexcom_readings.os.makedirs')
+    def test_setup_logging_file(
+        self, mock_makedirs, mock_exists
+    ):
+        """Verify file logging uses WatchedFileHandler."""
+        # Mock the WatchedFileHandler to avoid actual file creation
+        with patch.object(
+            dexcom_readings, 'WatchedFileHandler',
+            spec=True
+        ) as mock_handler_class:
+            mock_handler = MagicMock()
+            mock_handler.level = logging.INFO
+            mock_handler_class.return_value = mock_handler
+
+            logger = dexcom_readings.setup_logging()
+
+            mock_handler_class.assert_called()
+
+    @patch('dexcom_readings.LOG_DESTINATION', 'file')
+    @patch('dexcom_readings.LOG_FILE', '/tmp/test_dir/test.log')
+    @patch('dexcom_readings.os.makedirs')
+    @patch('dexcom_readings.os.path.exists', return_value=False)
+    def test_setup_logging_creates_directory(
+        self, mock_exists, mock_makedirs
+    ):
+        """Verify file logging creates parent directory."""
+        with patch.object(
+            dexcom_readings, 'WatchedFileHandler',
+            spec=True
+        ) as mock_handler_class:
+            mock_handler = MagicMock()
+            mock_handler.level = logging.INFO
+            mock_handler_class.return_value = mock_handler
+            dexcom_readings.setup_logging()
+
+        mock_makedirs.assert_called()
+
+
+class TestSIGHUP(unittest.TestCase):
+    """Tests for SIGHUP log rotation handling."""
+
+    def setUp(self):
+        """Reset log_reopen_requested flag before each test."""
+        dexcom_readings.log_reopen_requested = False
+
+    def test_handle_sighup_sets_flag(self):
+        """Verify handle_sighup sets log_reopen_requested flag."""
+        dexcom_readings.log_reopen_requested = False
+
+        dexcom_readings.handle_sighup(signal.SIGHUP, None)
+
+        self.assertTrue(
+            dexcom_readings.log_reopen_requested,
+            "SIGHUP handler should set log_reopen_requested"
+        )
+
+    @patch('dexcom_readings.logging.info')
+    def test_handle_sighup_logs_message(self, mock_log_info):
+        """Verify handle_sighup logs info message."""
+        dexcom_readings.handle_sighup(signal.SIGHUP, None)
+
+        mock_log_info.assert_called()
+        call_message = str(mock_log_info.call_args)
+        self.assertIn(
+            "SIGHUP",
+            call_message,
+            "Should log SIGHUP reception"
+        )
+
+    def test_check_and_reopen_logs_when_flagged(self):
+        """Verify check_and_reopen_logs reopens when flag is set."""
+        dexcom_readings.log_reopen_requested = True
+
+        # Create a mock handler
+        mock_handler = MagicMock(
+            spec=dexcom_readings.WatchedFileHandler
+        )
+
+        # Patch the logger to return our mock handler
+        with patch.object(
+            logging, 'getLogger'
+        ) as mock_getlogger:
+            mock_logger = MagicMock()
+            mock_logger.handlers = [mock_handler]
+            mock_getlogger.return_value = mock_logger
+
+            dexcom_readings.check_and_reopen_logs()
+
+        mock_handler.reopenIfNeeded.assert_called_once()
+        self.assertFalse(
+            dexcom_readings.log_reopen_requested,
+            "Flag should be cleared after handling"
+        )
+
+    def test_check_and_reopen_logs_skips_when_not_flagged(self):
+        """Verify check_and_reopen_logs does nothing when flag not set."""
+        dexcom_readings.log_reopen_requested = False
+
+        mock_handler = MagicMock()
+
+        with patch.object(
+            logging, 'getLogger'
+        ) as mock_getlogger:
+            mock_logger = MagicMock()
+            mock_logger.handlers = [mock_handler]
+            mock_getlogger.return_value = mock_logger
+
+            dexcom_readings.check_and_reopen_logs()
+
+        mock_handler.reopenIfNeeded.assert_not_called()
+
+    def test_check_and_reopen_logs_ignores_non_watched_handlers(self):
+        """Verify check_and_reopen_logs only affects WatchedFileHandler."""
+        dexcom_readings.log_reopen_requested = True
+
+        # Create handlers of different types
+        stream_handler = logging.StreamHandler()
+        mock_watched_handler = MagicMock(
+            spec=dexcom_readings.WatchedFileHandler
+        )
+
+        with patch.object(
+            logging, 'getLogger'
+        ) as mock_getlogger:
+            mock_logger = MagicMock()
+            mock_logger.handlers = [stream_handler, mock_watched_handler]
+            mock_getlogger.return_value = mock_logger
+
+            dexcom_readings.check_and_reopen_logs()
+
+        # Only WatchedFileHandler should have reopenIfNeeded called
+        mock_watched_handler.reopenIfNeeded.assert_called_once()
 
 
 if __name__ == '__main__':
