@@ -19,6 +19,7 @@ import os
 import signal
 import sys
 import time
+import fcntl
 from pathlib import Path
 from typing import Any, Optional
 
@@ -90,6 +91,92 @@ CSV_HEADERS = [
     "check_timestamp_utc", "new_reading_received", "glucose_value_mgdl",
     "glucose_timestamp_utc", "trend_description", "trend_arrow"
 ]
+
+
+class PIDFile:
+    """Context manager for PID-based single-instance locking.
+
+    Uses fcntl file locking to guarantee the lock is released even if
+    the process crashes. Prevents stale PID files from blocking startup.
+
+    Attributes:
+        pidfile_path: Path to the PID file.
+        pidfile: File handle for the PID file.
+
+    Example:
+        with PIDFile("/var/run/dexcom-readings.pid") as pid:
+            # Only one instance can reach here
+            main_loop()
+    """
+
+    def __init__(self, pidfile_path: str) -> None:
+        """Initialize the PID file context manager.
+
+        Args:
+            pidfile_path: Path to the PID file.
+        """
+        self.pidfile_path = pidfile_path
+        self.pidfile: Optional[Any] = None
+
+    def __enter__(self) -> "PIDFile":
+        """Acquire the PID file lock.
+
+        Creates parent directory if needed, opens the PID file, and
+        acquires an exclusive non-blocking lock. Writes the current
+        process ID to the file.
+
+        Returns:
+            PIDFile: self, allowing use as a context manager.
+
+        Raises:
+            RuntimeError: If another instance is already running.
+        """
+        # Create parent directory if needed
+        pid_dir = os.path.dirname(self.pidfile_path)
+        if pid_dir and not os.path.exists(pid_dir):
+            os.makedirs(pid_dir, exist_ok=True)
+
+        self.pidfile = open(self.pidfile_path, "w")
+        try:
+            # LOCK_EX = exclusive lock, LOCK_NB = non-blocking
+            fcntl.flock(self.pidfile.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.pidfile.write(f"{os.getpid()}\n")
+            self.pidfile.flush()
+            logging.info(f"Acquired PID file lock: {self.pidfile_path}")
+            return self
+        except BlockingIOError:
+            self.pidfile.close()
+            raise RuntimeError(
+                f"Another instance is already running (PID file: {self.pidfile_path})"
+            )
+
+    def __exit__(
+        self,
+        exc_type: Optional[type],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any]
+    ) -> None:
+        """Release the PID file lock and clean up.
+
+        Releases the file lock, closes the file handle, and removes
+        the PID file from the filesystem.
+
+        Args:
+            exc_type: Exception type if an exception was raised.
+            exc_val: Exception value if an exception was raised.
+            exc_tb: Exception traceback if an exception was raised.
+
+        Returns:
+            None
+        """
+        if self.pidfile:
+            fcntl.flock(self.pidfile.fileno(), fcntl.LOCK_UN)
+            self.pidfile.close()
+            try:
+                os.unlink(self.pidfile_path)
+            except OSError:
+                pass  # File may already be deleted
+
 
 # Configure logging
 logging.basicConfig(
@@ -322,11 +409,44 @@ def upload_to_nightscout(
         )
 
 def main() -> None:
-    """Main polling loop for Dexcom glucose readings.
+    """Main entry point with PID file single-instance enforcement.
+
+    Acquires a PID file lock before starting the polling loop. If another
+    instance is already running, exits with an error message.
 
     Continuously polls the Dexcom Share API for new glucose readings,
     logs data to CSV, and uploads to Nightscout when configured.
-    Runs indefinitely until interrupted.
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Raises:
+        SystemExit: If Dexcom client initialization fails (exit code 1).
+        SystemExit: If another instance is already running (exit code 1).
+    """
+    # Register signal handlers for graceful shutdown
+    signal.signal(signal.SIGTERM, handle_shutdown_signal)
+    signal.signal(signal.SIGINT, handle_shutdown_signal)
+
+    # Acquire PID file lock for single-instance enforcement
+    try:
+        with PIDFile(PID_FILE) as pid:
+            _run_main_loop()
+    except RuntimeError as e:
+        logging.error(str(e))
+        sys.exit(1)
+
+
+def _run_main_loop() -> None:
+    """Internal main loop, called after PID file is acquired.
+
+    Separated from main() to allow clean PID file handling.
+
+    Continuously polls the Dexcom Share API for new glucose readings,
+    logs data to CSV, and uploads to Nightscout when configured.
 
     Args:
         None
@@ -337,10 +457,6 @@ def main() -> None:
     Raises:
         SystemExit: If Dexcom client initialization fails (exit code 1).
     """
-    # Register signal handlers for graceful shutdown
-    signal.signal(signal.SIGTERM, handle_shutdown_signal)
-    signal.signal(signal.SIGINT, handle_shutdown_signal)
-
     last_known_glucose_timestamp = None  # Local state, not global
 
     dexcom_client = initialize_dexcom_client()
