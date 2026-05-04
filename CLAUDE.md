@@ -76,13 +76,11 @@ A Dexcom CGM (Continuous Glucose Monitor) data polling and forwarding service. I
 - UPPER_SNAKE_CASE at module level: `DEXCOM_USERNAME`, `POLLING_INTERVAL_SECONDS`, `OUTPUT_CSV_FILE`, `CSV_HEADERS`
 - PascalCase: `MockGlucoseReading`, `TestDexcomReadings`
 ## Code Style
-- No formal formatter config detected (no `.prettierrc`, `pyproject.toml`, etc.)
-- Line length appears to follow PEP 8 style with some flexibility
-- Comment `# noqa: E501` indicates awareness of line length linting
-- No explicit linting config files present
-- Implicit adherence to PEP 8 conventions
-- 4 spaces (Python standard)
-- f-strings used consistently for interpolation:
+- Follow the [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
+- 4 spaces for indentation (Python standard)
+- Line length limit: 80 characters
+- f-strings used consistently for interpolation
+- Docstrings for all public modules, functions, classes, and methods
 ## Import Organization
 ## Error Handling
 - Try-except blocks with specific exception types
