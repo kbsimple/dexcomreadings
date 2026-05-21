@@ -8,6 +8,18 @@ A Dexcom CGM (Continuous Glucose Monitor) data polling and forwarding service. I
 
 Reliable, continuous glucose data replication from Dexcom to Nightscout without data loss.
 
+## Current Milestone: v1.1 Reliability Improvements
+
+**Goal:** Enhance system resilience for production-grade reliability.
+
+**Target features:**
+- Automatic Dexcom session reconnection when auth expires
+- Circuit breaker pattern for repeated API failures
+- API rate limit handling
+- Connection timeout configuration
+
+---
+
 ## Requirements
 
 ### Validated
