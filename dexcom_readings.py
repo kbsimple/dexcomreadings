@@ -374,6 +374,97 @@ def check_and_reopen_logs() -> None:
         logging.info("Log file reopened")
 
 
+def should_attempt_reauth(error: Exception) -> bool:
+    """Determines if re-authentication should be attempted for a given error.
+
+    Tracks consecutive failures across calls and enforces a cooldown period
+    between re-authentication attempts. AccountError is unrecoverable and
+    always returns False.
+
+    Args:
+        error: The exception that caused the failure.
+
+    Returns:
+        bool: True if re-authentication should be attempted.
+            False if the error is unrecoverable (AccountError) or
+            if cooldown period has not elapsed.
+
+    Raises:
+        No exceptions raised.
+    """
+    global _consecutive_failures, _last_failure_time, _last_reauth_time
+
+    now = time.time()
+
+    # AccountError is unrecoverable — credentials are invalid
+    if isinstance(error, AccountError):
+        logging.error(
+            "Authentication credentials invalid — manual intervention required"
+        )
+        return False
+
+    # Update failure tracking
+    _consecutive_failures += 1
+    _last_failure_time = now
+
+    # Check if we've exceeded threshold
+    if _consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+        # Rate-limit re-auth attempts via cooldown
+        if _last_reauth_time and (now - _last_reauth_time) < REAUTH_COOLDOWN_SECONDS:
+            logging.warning(
+                f"Consecutive failures: {_consecutive_failures}, "
+                f"but re-auth cooldown not elapsed"
+            )
+            return False
+
+        logging.warning(
+            f"Consecutive failures ({_consecutive_failures}) exceed threshold "
+            f"({MAX_CONSECUTIVE_FAILURES}) — attempting re-authentication"
+        )
+        return True
+
+    return False
+
+
+def reset_failure_counter() -> None:
+    """Resets the consecutive failure counter after successful operation.
+
+    Called after a successful glucose reading fetch to clear the failure
+    state. This ensures transient failures don't accumulate indefinitely.
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Raises:
+        No exceptions raised.
+    """
+    global _consecutive_failures, _last_failure_time
+    _consecutive_failures = 0
+    _last_failure_time = None
+
+
+def record_reauth_attempt() -> None:
+    """Records that a re-authentication attempt was made.
+
+    Updates the timestamp of the most recent re-authentication attempt.
+    Used by the cooldown logic to prevent rapid re-authentication.
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Raises:
+        No exceptions raised.
+    """
+    global _last_reauth_time
+    _last_reauth_time = time.time()
+
+
 def initialize_dexcom_client() -> Optional[Any]:
     """Initializes and authenticates a Dexcom Share API client.
 
