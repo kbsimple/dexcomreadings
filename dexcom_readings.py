@@ -61,6 +61,10 @@ RETRY_MAX_ATTEMPTS = 3
 RETRY_INITIAL_DELAY_SECONDS = 1
 RETRY_MAX_DELAY_SECONDS = 30
 
+# Session resilience configuration
+MAX_CONSECUTIVE_FAILURES = int(os.environ.get("DEXCOM_MAX_FAILURES", "3"))
+REAUTH_COOLDOWN_SECONDS = int(os.environ.get("DEXCOM_REAUTH_COOLDOWN", "60"))
+
 # XDG Base Directory Specification defaults
 DEFAULT_DATA_DIR = os.environ.get(
     "XDG_DATA_HOME", str(Path.home() / ".local" / "share")
