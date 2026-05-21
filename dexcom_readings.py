@@ -696,8 +696,6 @@ def _run_main_loop() -> None:
         check_timestamp_utc = datetime.datetime.utcnow()
         new_reading_received = False
 
-        current_bg = get_latest_glucose_reading(dexcom_client)
-
         glucose_value_to_log = None
         glucose_timestamp_to_log = None
         trend_description_to_log = None
@@ -705,43 +703,67 @@ def _run_main_loop() -> None:
 
         current_glucose_datetime = None
 
-        if current_bg:
-            current_glucose_datetime = current_bg.datetime
+        try:
+            current_bg = get_latest_glucose_reading(dexcom_client)
 
-            if (last_known_glucose_timestamp is None or
-                    current_glucose_datetime > last_known_glucose_timestamp):
-                new_reading_received = True  # noqa: E501
+            if current_bg:
+                # Success — reset failure counter
+                reset_failure_counter()
 
-                last_known_glucose_timestamp = current_glucose_datetime
+                current_glucose_datetime = current_bg.datetime
 
-                glucose_value_to_log = current_bg.value
-                glucose_timestamp_to_log = current_glucose_datetime.isoformat()
-                trend_description_to_log = current_bg.trend_description
-                trend_arrow_to_log = current_bg.trend_arrow
+                if (last_known_glucose_timestamp is None or
+                        current_glucose_datetime > last_known_glucose_timestamp):
+                    new_reading_received = True  # noqa: E501
 
-                # Changed to logging for new reading notification
-                logging.info(
-                    f"{check_timestamp_utc.isoformat()}: New reading! "
-                    f"Value: {current_bg.value} mg/dL "
-                    f"({current_bg.trend_description}), "
-                    f"Time: {current_glucose_datetime.isoformat()}"
-                )
+                    last_known_glucose_timestamp = current_glucose_datetime
 
-                upload_to_nightscout(
-                    glucose_value_to_log,
-                    current_glucose_datetime,
-                    trend_arrow_to_log
-                )
+                    glucose_value_to_log = current_bg.value
+                    glucose_timestamp_to_log = current_glucose_datetime.isoformat()
+                    trend_description_to_log = current_bg.trend_description
+                    trend_arrow_to_log = current_bg.trend_arrow
+
+                    # Changed to logging for new reading notification
+                    logging.info(
+                        f"{check_timestamp_utc.isoformat()}: New reading! "
+                        f"Value: {current_bg.value} mg/dL "
+                        f"({current_bg.trend_description}), "
+                        f"Time: {current_glucose_datetime.isoformat()}"
+                    )
+
+                    upload_to_nightscout(
+                        glucose_value_to_log,
+                        current_glucose_datetime,
+                        trend_arrow_to_log
+                    )
+                else:
+                    last_known = (last_known_glucose_timestamp.isoformat() if
+                                  last_known_glucose_timestamp else 'N/A')
+                    logging.info(
+                        f"{check_timestamp_utc.isoformat()}: No new reading. "
+                        f"Last known: {last_known}"
+                    )
             else:
-                last_known = (last_known_glucose_timestamp.isoformat() if
-                              last_known_glucose_timestamp else 'N/A')
-                logging.info(
-                    f"{check_timestamp_utc.isoformat()}: No new reading. "
-                    f"Last known: {last_known}"
-                )
-        else:
-            logging.warning(f"{check_timestamp_utc.isoformat()}: Could not "
-                            f"retrieve glucose reading.")
+                logging.warning(f"{check_timestamp_utc.isoformat()}: Could not "
+                                f"retrieve glucose reading.")
+
+        except AccountError:
+            # Unrecoverable — credentials invalid
+            logging.error("Authentication failed — exiting")
+            sys.exit(1)
+
+        except (SessionError, ServerError) as e:
+            # Potentially recoverable — check if re-auth needed
+            if should_attempt_reauth(e):
+                logging.info("Attempting to re-authenticate...")
+                new_client = initialize_dexcom_client()
+                if new_client:
+                    dexcom_client = new_client
+                    record_reauth_attempt()
+                    logging.info("Re-authentication successful")
+                else:
+                    logging.error("Re-authentication failed — will retry next cycle")
+            # Continue polling — failure already logged by retry_with_backoff
 
         log_row = [
             check_timestamp_utc.isoformat(),
