@@ -258,6 +258,11 @@ shutdown_requested = False
 # SIGHUP flag for log rotation
 log_reopen_requested = False
 
+# Session resilience state
+_consecutive_failures: int = 0
+_last_failure_time: Optional[float] = None
+_last_reauth_time: Optional[float] = None
+
 
 def retry_with_backoff(
         func: Any,
