@@ -47,8 +47,8 @@
 
 ### Session Resilience
 
-- [ ] **SESS-01**: Service automatically reconnects when Dexcom session expires
-- [ ] **SESS-02**: Service re-authenticates without manual intervention
+- [x] **SESS-01**: Service automatically reconnects when Dexcom session expires
+- [x] **SESS-02**: Service re-authenticates without manual intervention
 
 ### Failure Handling
 
@@ -109,8 +109,8 @@
 | DAEMON-03 | Phase 4 | Complete |
 | DAEMON-04 | Phase 4 | Complete |
 | DAEMON-05 | Phase 4 | Complete |
-| SESS-01 | Phase 5 | Pending |
-| SESS-02 | Phase 5 | Pending |
+| SESS-01 | Phase 5 | Complete |
+| SESS-02 | Phase 5 | Complete |
 | FAIL-01 | Phase 6 | Pending |
 | FAIL-02 | Phase 6 | Pending |
 | FAIL-03 | Phase 6 | Pending |

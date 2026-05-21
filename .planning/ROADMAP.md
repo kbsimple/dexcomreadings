@@ -129,12 +129,12 @@ Plans:
   3. Session recovery is logged with clear status messages
   4. No readings are lost during session recovery (retry logic handles the gap)
 
-**Plans:** 0/3 plans complete
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 05-01-PLAN.md — Fix pydexcom version and extend retry_with_backoff for pydexcom exceptions
-- [ ] 05-02-PLAN.md — Add consecutive failure tracking module state and functions
-- [ ] 05-03-PLAN.md — Integrate session resilience into main loop and add tests
+- [x] 05-01-PLAN.md — Fix pydexcom version and extend retry_with_backoff for pydexcom exceptions
+- [x] 05-02-PLAN.md — Add consecutive failure tracking module state and functions
+- [x] 05-03-PLAN.md — Integrate session resilience into main loop and add tests
 
 ---
 
@@ -163,7 +163,7 @@ Plans:
 | 2. Configuration & Robustness | 2/2 | Complete    | 2026-04-19 |
 | 3. Testing & Documentation | 1/1 | Complete    | 2026-04-20 |
 | 4. System Daemon Compatibility | 4/4 | Complete | 2026-04-25 |
-| 5. Session Resilience | 0/3 | Ready | — |
+| 5. Session Resilience | 3/3 | Complete | 2026-05-21 |
 | 6. Failure Handling & API Resilience | 0/0 | Not Started | — |
 
 ---

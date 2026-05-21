@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Reliability Improvements
-status: Ready
-last_updated: "2026-05-21T07:36:27.884Z"
+status: Complete
+last_updated: "2026-05-21T07:42:00Z"
 progress:
   total_phases: 6
-  completed_phases: 4
-  total_plans: 14
-  completed_plans: 13
-  percent: 93
+  completed_phases: 5
+  total_plans: 17
+  completed_plans: 17
+  percent: 100
 ---
 
 # State
@@ -18,16 +18,16 @@ progress:
 
 **Project:** Dexcom Readings
 **Core Value:** Reliable, continuous glucose data replication from Dexcom to Nightscout without data loss.
-**Current Focus:** Phase 5 - Session Resilience
+**Current Focus:** Phase 5 - Session Resilience Complete
 
 ---
 
 ## Current Position
 
 **Phase:** 5 - Session Resilience
-**Plan:** —
-**Status:** Ready
-**Progress:** [█████████░] 93%
+**Plan:** 03 - Complete
+**Status:** Complete
+**Progress:** [██████████] 100%
 
 ---
 
@@ -35,14 +35,13 @@ progress:
 
 | Metric | Value |
 |--------|-------|
-| Plans Completed | 11 |
-| Plans This Phase | 0 |
-| Total Plans | 11 |
-| Requirements Delivered | 0 |
+| Plans Completed | 17 |
+| Plans This Phase | 3 |
+| Total Plans | 17 |
+| Requirements Delivered | 2 |
 | Days Active | 1 |
 
 ---
-| Phase 05-session-resilience P01 | 60 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -57,6 +56,9 @@ progress:
 | 2026-04-25 | Use /opt/dexcom-readings as default installation path for both Linux and macOS daemon templates | Consistent cross-platform deployment location |
 | 2026-04-25 | Use WatchedFileHandler for log rotation | External tools (logrotate) handle compression, archival, retention |
 | 2026-04-25 | Flag-based SIGHUP handler for log rotation | Avoids race conditions; handler sets flag, main loop processes |
+| 2026-05-21 | AccountError causes graceful exit (sys.exit(1)) | Unrecoverable credential error requires manual intervention |
+| 2026-05-21 | SessionError/ServerError trigger re-auth after threshold | Transient failures warrant automatic recovery attempt |
+| 2026-05-21 | Cooldown period prevents re-auth thrashing | Rate-limit re-auth attempts to avoid API abuse |
 
 ### Active TODOs
 
@@ -69,7 +71,8 @@ progress:
 ### Roadmap Evolution
 
 - Milestone v1.0 complete: All phases shipped
-- Milestone v1.1 started: Reliability Improvements - Session resilience and circuit breaker
+- Milestone v1.1 Phase 5 complete: Session Resilience implemented
+- Phase 6 (Failure Handling & API Resilience) ready for execution
 
 ---
 
@@ -78,12 +81,12 @@ progress:
 ### Last Session
 
 - **Date:** 2026-05-21
-- **Action:** Milestone v1.1 roadmap created
-- **Outcome:** Phase 5 and Phase 6 defined, ready for execution
+- **Action:** Completed Phase 5 Plan 03 - Session Resilience Integration
+- **Outcome:** Main loop now handles session expiration with automatic re-authentication
 
 ### Next Action
 
-Execute Phase 5: Session Resilience
+Execute Phase 6: Failure Handling & API Resilience
 
 ---
 
@@ -95,7 +98,8 @@ Execute Phase 5: Session Resilience
 | 2. Configuration & Robustness | Complete | 2026-04-19 | 2026-04-19 | v1.0 |
 | 3. Testing & Documentation | Complete | 2026-04-20 | 2026-04-20 | v1.0 |
 | 4. System Daemon Compatibility | Complete | 2026-04-25 | 2026-04-25 | v1.0 |
+| 5. Session Resilience | Complete | 2026-05-21 | 2026-05-21 | v1.1 |
 
 ---
 
-*Last updated: 2026-05-21 — Milestone v1.1 roadmap created*
+*Last updated: 2026-05-21 — Phase 5 Session Resilience complete*
