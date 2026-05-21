@@ -9,6 +9,7 @@ import os
 import signal
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import MagicMock, mock_open, patch
 
@@ -717,6 +718,67 @@ class TestSIGHUP(unittest.TestCase):
 
         # Only WatchedFileHandler should have reopenIfNeeded called
         mock_watched_handler.reopenIfNeeded.assert_called_once()
+
+
+class TestSessionResilience(unittest.TestCase):
+    """Tests for session resilience and recovery behavior."""
+
+    def setUp(self):
+        """Reset session resilience state before each test."""
+        # Reset module-level state
+        dexcom_readings._consecutive_failures = 0
+        dexcom_readings._last_failure_time = None
+        dexcom_readings._last_reauth_time = None
+
+    def tearDown(self):
+        """Reset session resilience state after each test."""
+        dexcom_readings._consecutive_failures = 0
+        dexcom_readings._last_failure_time = None
+        dexcom_readings._last_reauth_time = None
+
+    def test_should_attempt_reauth_returns_false_for_account_error(self):
+        """Verify should_attempt_reauth returns False for AccountError."""
+        from pydexcom.errors import AccountError
+        result = dexcom_readings.should_attempt_reauth(
+            AccountError()
+        )
+        self.assertFalse(result)
+
+    def test_should_attempt_reauth_returns_true_after_threshold(self):
+        """Verify should_attempt_reauth returns True when threshold exceeded."""
+        from pydexcom.errors import SessionError
+        # Simulate failures up to threshold
+        for _ in range(dexcom_readings.MAX_CONSECUTIVE_FAILURES):
+            result = dexcom_readings.should_attempt_reauth(
+                SessionError()
+            )
+        # After threshold, should return True
+        self.assertTrue(result)
+
+    def test_should_attempt_reauth_returns_false_during_cooldown(self):
+        """Verify should_attempt_reauth returns False during cooldown."""
+        from pydexcom.errors import SessionError
+        # Set up state where threshold is exceeded but cooldown not elapsed
+        dexcom_readings._consecutive_failures = dexcom_readings.MAX_CONSECUTIVE_FAILURES
+        dexcom_readings._last_reauth_time = time.time()  # Just re-authed
+        result = dexcom_readings.should_attempt_reauth(
+            SessionError()
+        )
+        self.assertFalse(result)
+
+    def test_reset_failure_counter_clears_state(self):
+        """Verify reset_failure_counter clears failure state."""
+        dexcom_readings._consecutive_failures = 5
+        dexcom_readings._last_failure_time = time.time()
+        dexcom_readings.reset_failure_counter()
+        self.assertEqual(dexcom_readings._consecutive_failures, 0)
+        self.assertIsNone(dexcom_readings._last_failure_time)
+
+    def test_record_reauth_attempt_sets_timestamp(self):
+        """Verify record_reauth_attempt sets the timestamp."""
+        dexcom_readings._last_reauth_time = None
+        dexcom_readings.record_reauth_attempt()
+        self.assertIsNotNone(dexcom_readings._last_reauth_time)
 
 
 if __name__ == '__main__':
