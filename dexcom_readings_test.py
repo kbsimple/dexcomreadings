@@ -780,6 +780,91 @@ class TestSessionResilience(unittest.TestCase):
         dexcom_readings.record_reauth_attempt()
         self.assertIsNotNone(dexcom_readings._last_reauth_time)
 
+    @patch('dexcom_readings.time.sleep')
+    @patch('dexcom_readings.write_to_csv')
+    @patch('dexcom_readings.initialize_dexcom_client')
+    @patch('dexcom_readings.logging')
+    def test_main_loop_exits_on_account_error(
+        self, mock_logging, mock_init_client, mock_write_csv, mock_sleep
+    ):
+        """Verify main loop exits gracefully on AccountError."""
+        from pydexcom.errors import AccountError
+
+        mock_client = MagicMock()
+        mock_init_client.return_value = mock_client
+
+        # Simulate AccountError on first get_current_glucose_reading call
+        mock_client.get_current_glucose_reading.side_effect = AccountError()
+
+        # Set shutdown_requested to exit after first iteration
+        original_shutdown = dexcom_readings.shutdown_requested
+        dexcom_readings.shutdown_requested = False
+
+        try:
+            # The AccountError should propagate and cause exit
+            with self.assertRaises(SystemExit) as context:
+                with patch.object(dexcom_readings, 'PIDFile'):
+                    dexcom_readings._run_main_loop()
+
+            # Verify exit code is 1
+            self.assertEqual(context.exception.code, 1)
+        finally:
+            dexcom_readings.shutdown_requested = original_shutdown
+
+    @patch('dexcom_readings.time.sleep')
+    @patch('dexcom_readings.write_to_csv')
+    @patch('dexcom_readings.get_latest_glucose_reading')
+    @patch('dexcom_readings.initialize_dexcom_client')
+    @patch('dexcom_readings.should_attempt_reauth')
+    @patch('dexcom_readings.record_reauth_attempt')
+    @patch('dexcom_readings.reset_failure_counter')
+    @patch('dexcom_readings.logging')
+    def test_main_loop_reauth_on_session_error(
+        self, mock_logging, mock_reset, mock_record, mock_should,
+        mock_init_client, mock_get_reading, mock_write_csv, mock_sleep
+    ):
+        """Verify main loop attempts re-authentication on SessionError."""
+        from pydexcom.errors import SessionError
+
+        mock_client = MagicMock()
+        mock_new_client = MagicMock()
+        # First call returns initial client, second call returns new client
+        mock_init_client.side_effect = [mock_client, mock_new_client]
+        mock_should.return_value = True  # Trigger re-auth attempt
+
+        # Set up to exit after second iteration
+        iteration_count = [0]
+        def stop_loop(*args):
+            iteration_count[0] += 1
+            if iteration_count[0] >= 2:
+                dexcom_readings.shutdown_requested = True
+            return MagicMock()
+
+        mock_sleep.side_effect = stop_loop
+
+        # First call raises SessionError directly (bypassing retry_with_backoff)
+        # Second call returns a valid reading
+        glucose_time = datetime.datetime(2023, 1, 1, 12, 0, 0)
+        mock_reading = MockGlucoseReading(100, "Flat", "→", glucose_time)
+
+        mock_get_reading.side_effect = [
+            SessionError(),  # First call raises exception
+            mock_reading  # Second call succeeds
+        ]
+
+        original_shutdown = dexcom_readings.shutdown_requested
+        dexcom_readings.shutdown_requested = False
+
+        try:
+            with patch.object(dexcom_readings, 'PIDFile'):
+                dexcom_readings._run_main_loop()
+
+            # Verify re-auth was attempted
+            mock_should.assert_called()
+            mock_record.assert_called()  # record_reauth_attempt called
+        finally:
+            dexcom_readings.shutdown_requested = original_shutdown
+
 
 if __name__ == '__main__':
     unittest.main()
