@@ -109,6 +109,45 @@ Plans:
 
 ---
 
+## Milestone v1.1: Reliability Improvements
+
+**Goal:** Enhance system resilience for production-grade reliability.
+
+---
+
+### Phase 5: Session Resilience
+
+**Goal:** Service automatically recovers from Dexcom session expiration without manual intervention.
+
+**Depends on:** Phase 4 (System Daemon Compatibility)
+
+**Requirements:** SESS-01, SESS-02
+
+**Success Criteria** (what must be TRUE):
+  1. Service detects session expiration and attempts reconnection automatically
+  2. Service re-authenticates using stored credentials without user intervention
+  3. Session recovery is logged with clear status messages
+  4. No readings are lost during session recovery (retry logic handles the gap)
+
+---
+
+### Phase 6: Failure Handling & API Resilience
+
+**Goal:** Service handles API failures gracefully with circuit breaker pattern and configurable timeouts.
+
+**Depends on:** Phase 5 (Session Resilience)
+
+**Requirements:** FAIL-01, FAIL-02, FAIL-03, API-01, API-02, API-03
+
+**Success Criteria** (what must be TRUE):
+  1. Circuit breaker opens after configured consecutive failures
+  2. Circuit breaker auto-recovers after cooldown period
+  3. Failure thresholds and recovery timeouts are configurable via environment
+  4. Dexcom API rate limits are handled with exponential backoff
+  5. Connection and read timeouts are configurable via environment
+
+---
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -117,7 +156,9 @@ Plans:
 | 2. Configuration & Robustness | 2/2 | Complete    | 2026-04-19 |
 | 3. Testing & Documentation | 1/1 | Complete    | 2026-04-20 |
 | 4. System Daemon Compatibility | 4/4 | Complete | 2026-04-25 |
+| 5. Session Resilience | 0/0 | Not Started | — |
+| 6. Failure Handling & API Resilience | 0/0 | Not Started | — |
 
 ---
 
-*Last updated: 2026-04-25*
+*Last updated: 2026-05-21*
