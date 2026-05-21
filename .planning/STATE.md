@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Reliability Improvements
 status: Ready
-last_updated: "2026-05-21T00:00:00.000Z"
+last_updated: "2026-05-21T07:35:01.281Z"
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 11
-  completed_plans: 11
-  percent: 67
+  total_plans: 14
+  completed_plans: 12
+  percent: 86
 ---
 
 # State
@@ -42,6 +42,7 @@ progress:
 | Days Active | 1 |
 
 ---
+| Phase 05-session-resilience P01 | 60 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
