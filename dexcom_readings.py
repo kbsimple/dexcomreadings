@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from pydexcom import Dexcom  # Dexcom Share API client
+from pydexcom.errors import AccountError, SessionError, ServerError
 
 import requests
 
@@ -276,7 +277,8 @@ def retry_with_backoff(
             attempts fail.
 
     Raises:
-        No exceptions raised; errors are logged and None is returned.
+        AccountError: If authentication credentials are invalid.
+            Propagated to caller for graceful exit handling.
     """
     delay = initial_delay
     last_exception = None
@@ -284,9 +286,15 @@ def retry_with_backoff(
     for attempt in range(max_attempts):
         try:
             return func()
+        except AccountError as e:
+            # Unrecoverable — credentials invalid
+            logging.error(f"Authentication failed: {e}")
+            raise  # Propagate to caller for graceful exit
         except (requests.exceptions.RequestException,
                 ConnectionError,
-                TimeoutError) as e:
+                TimeoutError,
+                SessionError,
+                ServerError) as e:
             last_exception = e
             if attempt < max_attempts - 1:
                 logging.warning(
