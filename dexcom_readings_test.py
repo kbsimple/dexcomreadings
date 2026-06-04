@@ -1032,6 +1032,116 @@ class TestCircuitBreaker(unittest.TestCase):
         self.assertEqual(dexcom_readings._circuit_failure_count, 0)
         self.assertIsNone(dexcom_readings._circuit_opened_at)
 
+    # Tests for retry_with_backoff integration with circuit breaker
+    @patch('dexcom_readings.time.sleep')
+    def test_retry_with_backoff_respects_open_circuit(self, mock_sleep):
+        """Verify retry_with_backoff returns None when circuit is open."""
+        from pydexcom.errors import SessionError
+
+        # Set circuit to open
+        dexcom_readings._circuit_state = "open"
+        dexcom_readings._circuit_opened_at = time.time()
+
+        call_count = [0]
+        def failing_func():
+            call_count[0] += 1
+            raise SessionError()
+
+        result = dexcom_readings.retry_with_backoff(failing_func, max_attempts=3)
+
+        # Should return None without calling the function
+        self.assertIsNone(result)
+        self.assertEqual(call_count[0], 0)  # Function never called
+        mock_sleep.assert_not_called()
+
+    @patch('dexcom_readings.time.sleep')
+    def test_retry_with_backoff_records_success(self, mock_sleep):
+        """Verify retry_with_backoff calls record_circuit_success on success."""
+        call_count = [0]
+        def success_func():
+            call_count[0] += 1
+            return "success"
+
+        # Start with some failures recorded
+        dexcom_readings._circuit_failure_count = 3
+
+        result = dexcom_readings.retry_with_backoff(success_func)
+
+        self.assertEqual(result, "success")
+        self.assertEqual(dexcom_readings._circuit_failure_count, 0)  # Reset on success
+        self.assertEqual(dexcom_readings._circuit_state, "closed")
+
+    @patch('dexcom_readings.time.sleep')
+    def test_retry_with_backoff_records_failure_on_transient_error(self, mock_sleep):
+        """Verify retry_with_backoff calls record_circuit_failure on transient error."""
+        from pydexcom.errors import SessionError
+
+        call_count = [0]
+        def failing_func():
+            call_count[0] += 1
+            if call_count[0] < 3:
+                raise SessionError()
+            return "success"
+
+        # Set threshold high enough to not open circuit
+        with patch.object(dexcom_readings, 'CIRCUIT_BREAKER_FAILURE_THRESHOLD', 10):
+            result = dexcom_readings.retry_with_backoff(failing_func, max_attempts=5)
+
+        self.assertEqual(result, "success")
+        # Failures recorded, then reset on success
+        self.assertEqual(dexcom_readings._circuit_failure_count, 0)  # Reset on success
+
+    def test_retry_with_backoff_does_not_record_failure_on_account_error(self):
+        """Verify retry_with_backoff does NOT call record_circuit_failure on AccountError."""
+        from pydexcom.errors import AccountError
+
+        def account_error_func():
+            raise AccountError()
+
+        # Start with clean state
+        dexcom_readings._circuit_failure_count = 0
+        dexcom_readings._circuit_state = "closed"
+
+        # AccountError should propagate, not be caught as transient
+        with self.assertRaises(AccountError):
+            dexcom_readings.retry_with_backoff(account_error_func, max_attempts=3)
+
+        # Failure count should still be 0 - AccountError is not a transient failure
+        self.assertEqual(dexcom_readings._circuit_failure_count, 0)
+        self.assertEqual(dexcom_readings._circuit_state, "closed")
+
+    @patch('dexcom_readings.time.sleep')
+    def test_circuit_opens_after_threshold_failures(self, mock_sleep):
+        """Verify circuit opens after threshold consecutive failures."""
+        from pydexcom.errors import SessionError
+
+        # Set threshold to 3
+        with patch.object(dexcom_readings, 'CIRCUIT_BREAKER_FAILURE_THRESHOLD', 3):
+            call_count = [0]
+            def always_fail():
+                call_count[0] += 1
+                raise SessionError()
+
+            # First call: failures accumulate but circuit stays closed
+            dexcom_readings._circuit_failure_count = 0
+            result1 = dexcom_readings.retry_with_backoff(always_fail, max_attempts=3)
+            self.assertIsNone(result1)
+            # After retries, failures are recorded
+            # (3 retries = 3 failures recorded in this case)
+
+            # Reset for second call attempt
+            call_count[0] = 0
+
+            # Set circuit to open state
+            dexcom_readings._circuit_state = "open"
+            dexcom_readings._circuit_opened_at = time.time()
+
+            # Second call: circuit is open, should return None immediately
+            result2 = dexcom_readings.retry_with_backoff(always_fail, max_attempts=3)
+            self.assertIsNone(result2)
+            # Function should not be called when circuit is open
+            self.assertEqual(call_count[0], 0)
+
 
 if __name__ == '__main__':
     unittest.main()

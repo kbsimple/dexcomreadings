@@ -355,7 +355,8 @@ def retry_with_backoff(
     """Executes a function with exponential backoff retry for transient failures.
 
     Retries the function on network-related exceptions, doubling the delay
-    between attempts up to max_delay.
+    between attempts up to max_delay. Integrates with circuit breaker to
+    prevent cascade failures during extended outages.
 
     Args:
         func: A callable to execute. Should be a lambda or partial that
@@ -366,7 +367,7 @@ def retry_with_backoff(
 
     Returns:
         Any | None: The function result on success, or None if all
-            attempts fail.
+            attempts fail or circuit is open.
 
     Raises:
         AccountError: If authentication credentials are invalid.
@@ -376,10 +377,18 @@ def retry_with_backoff(
     last_exception = None
 
     for attempt in range(max_attempts):
+        # Check circuit breaker before attempting
+        if circuit_is_open():
+            logging.warning("Circuit breaker OPEN - skipping request")
+            return None
+
         try:
-            return func()
+            result = func()
+            record_circuit_success()
+            return result
         except AccountError as e:
             # Unrecoverable — credentials invalid
+            # DO NOT call record_circuit_failure() - this is not a transient failure
             logging.error(f"Authentication failed: {e}")
             raise  # Propagate to caller for graceful exit
         except (requests.exceptions.RequestException,
@@ -388,6 +397,7 @@ def retry_with_backoff(
                 SessionError,
                 ServerError) as e:
             last_exception = e
+            record_circuit_failure()
             if attempt < max_attempts - 1:
                 logging.warning(
                     f"Attempt {attempt + 1}/{max_attempts} failed: {e}. "
