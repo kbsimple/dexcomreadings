@@ -8,92 +8,77 @@ A Dexcom CGM (Continuous Glucose Monitor) data polling and forwarding service. I
 
 Reliable, continuous glucose data replication from Dexcom to Nightscout without data loss.
 
-## Current Milestone: v1.1 Reliability Improvements
+## Current State: v1.1 Reliability Improvements (Shipped)
 
-**Goal:** Enhance system resilience for production-grade reliability.
+**Shipped:** 2026-06-04
 
-**Target features:**
-- Automatic Dexcom session reconnection when auth expires
-- Circuit breaker pattern for repeated API failures
-- API rate limit handling
-- Connection timeout configuration
+**Features:**
+- Automatic Dexcom session reconnection when authentication expires
+- Circuit breaker pattern for cascade failure protection
+- HTTP 429 rate limit handling with Retry-After support
+- Configurable connection and read timeouts
+- Production-ready daemon support with PID file, syslog, SIGHUP rotation
+- Google Python Style Guide compliant codebase
 
----
+**Tech Stack:**
+- Python 3.x with pydexcom 0.2.0 (pinned)
+- ~2,555 lines of code
+- 86 unit tests
 
 ## Requirements
 
 ### Validated
 
-- ✓ Dexcom Share API authentication with region support (US/OUS) — existing
-- ✓ Polling loop with configurable interval — existing
-- ✓ Local CSV logging of all readings — existing
-- ✓ Nightscout API upload — existing
-- ✓ Graceful error handling (continue on failures) — existing
+- ✓ Google Python Style Guide compliance — v1.0
+- ✓ Configurable polling interval — v1.0
+- ✓ Graceful shutdown (SIGTERM/SIGINT) — v1.0
+- ✓ Exponential backoff retry logic — v1.0
+- ✓ System daemon compatibility (PID, syslog, SIGHUP) — v1.0
+- ✓ Systemd/launchd service templates — v1.0
+- ✓ Automatic session reconnection — v1.1
+- ✓ Circuit breaker failure protection — v1.1
+- ✓ Rate limit handling (HTTP 429) — v1.1
+- ✓ Configurable timeouts — v1.1
 
 ### Active
 
-- [ ] Add `requirements.txt` with pinned dependencies (`pydexcom`, `requests`)
-- [ ] Add `README.md` with installation, configuration, and usage documentation
-- [ ] Make polling interval configurable via environment variable
-- [ ] Implement graceful shutdown with signal handlers (SIGTERM/SIGINT)
-- [ ] Fix test suite — update mocks to match production logging (tests mock `print` but code uses `logging`)
-- [ ] Add retry logic with exponential backoff for transient network failures
-- [ ] Apply Google Python Style Guide compliance (docstrings, type hints, naming conventions, main function)
+- [ ] Health check/status endpoint for monitoring (v2.0)
+- [ ] Log rotation for CSV file growth (v2.0)
+- [ ] Database storage option instead of CSV (v2.0)
+- [ ] Structured logging (JSON format) (v2.0)
+- [ ] Prometheus metrics export (v2.0)
 
 ### Out of Scope
 
-- Multi-user support — single-user polling service
-- Database storage — CSV is sufficient for current use case
-- Web UI — runs as daemon/background service
-- Real-time notifications — polling-based architecture
+- **Multi-user support** — Single-user polling service by design
+- **Web UI** — Runs as daemon/background service
+- **Real-time notifications** — Polling-based architecture, not event-driven
+- **Database storage** — CSV is sufficient for current use case (may revisit in v2.0)
+- **Migration away from pydexcom** — Will continue using third-party library
 
 ## Context
 
 **Current Architecture:**
 - Single-file monolithic script (`dexcom_readings.py`)
-- Procedural design with global state (`last_known_glucose_timestamp`)
+- Module-level state for session tracking and circuit breaker
 - Environment variable configuration
-- Python 3 with dependencies: `pydexcom`, `requests`
+- Python 3 with dependencies: pydexcom 0.2.0, requests
 
-**Known Issues from Codebase Analysis:**
-- Test suite mocks `builtins.print` but production uses `logging` module
-- Module-level global mutable state complicates testing
-- No type hints on function signatures
-- Inconsistent exit mechanism (`exit()` vs `sys.exit()`)
-- No graceful shutdown handling
-- No retry logic for API calls
-- Username logged in plaintext at INFO level
-
-## Constraints
-
-- **Tech Stack:** Python 3, pydexcom library, requests library
-- **Compatibility:** Must work with existing Dexcom Share API and Nightscout API
-- **Dependencies:** Third-party `pydexcom` library (no version currently pinned)
+**Known Technical Debt:**
+- Module-level mutable state complicates testing (acceptable for current scope)
+- Single-file architecture (acceptable for ~2500 LOC)
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Use pydexcom library | Avoid implementing Dexcom API authentication flow | — Pending |
-| Environment variable configuration | Follow 12-factor app principles, avoid secrets in code | — Pending |
-| CSV logging | Simple persistent storage without database dependency | — Pending |
+| Use pydexcom library | Avoid implementing Dexcom API authentication flow | ✓ Stable |
+| Pin pydexcom 0.2.0 | API stability, known behavior | ✓ Working |
+| Environment variable config | 12-factor app principles | ✓ Working |
+| CSV logging | Simple persistent storage without database dependency | ✓ Working |
+| Three-state circuit breaker | Industry standard pattern for failure protection | ✓ Working |
+| TimeoutSession injection | Enforce timeouts on pydexcom's internal requests | ✓ Working |
 
 ---
-*Last updated: 2026-04-19 after initialization*
 
-## Evolution
-
-This document evolves at phase transitions and milestone boundaries.
-
-**After each phase transition** (via `/gsd-transition`):
-1. Requirements invalidated? → Move to Out of Scope with reason
-2. Requirements validated? → Move to Validated with phase reference
-3. New requirements emerged? → Add to Active
-4. Decisions to log? → Add to Key Decisions
-5. "What This Is" still accurate? → Update if drifted
-
-**After each milestone** (via `/gsd-complete-milestone`):
-1. Full review of all sections
-2. Core Value check — still the right priority?
-3. Audit Out of Scope — reasons still valid?
-4. Update Context with current state
+*Last updated: 2026-06-04 after v1.1 milestone*

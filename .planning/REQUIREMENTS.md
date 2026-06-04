@@ -52,15 +52,15 @@
 
 ### Failure Handling
 
-- [ ] **FAIL-01**: Circuit breaker opens after repeated consecutive failures
-- [ ] **FAIL-02**: Circuit breaker auto-recovers after cooldown period
-- [ ] **FAIL-03**: Configurable failure thresholds and recovery timeouts
+- [x] **FAIL-01**: Circuit breaker opens after repeated consecutive failures
+- [x] **FAIL-02**: Circuit breaker auto-recovers after cooldown period
+- [x] **FAIL-03**: Configurable failure thresholds and recovery timeouts
 
 ### API Resilience
 
-- [ ] **API-01**: Handle Dexcom API rate limits with exponential backoff
-- [ ] **API-02**: Configurable connection timeout for API calls
-- [ ] **API-03**: Configurable read timeout for API responses
+- [x] **API-01**: Handle Dexcom API rate limits with exponential backoff
+- [x] **API-02**: Configurable connection timeout for API calls
+- [x] **API-03**: Configurable read timeout for API responses
 
 ---
 
@@ -111,12 +111,12 @@
 | DAEMON-05 | Phase 4 | Complete |
 | SESS-01 | Phase 5 | Complete |
 | SESS-02 | Phase 5 | Complete |
-| FAIL-01 | Phase 6 | Pending |
-| FAIL-02 | Phase 6 | Pending |
-| FAIL-03 | Phase 6 | Pending |
-| API-01 | Phase 6 | Pending |
-| API-02 | Phase 6 | Pending |
-| API-03 | Phase 6 | Pending |
+| FAIL-01 | Phase 6 | Complete |
+| FAIL-02 | Phase 6 | Complete |
+| FAIL-03 | Phase 6 | Complete |
+| API-01 | Phase 6 | Complete |
+| API-02 | Phase 6 | Complete |
+| API-03 | Phase 6 | Complete |
 
 ---
 *Last updated: 2026-05-21*
