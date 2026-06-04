@@ -65,6 +65,14 @@ RETRY_MAX_DELAY_SECONDS = 30
 MAX_CONSECUTIVE_FAILURES = int(os.environ.get("DEXCOM_MAX_FAILURES", "3"))
 REAUTH_COOLDOWN_SECONDS = int(os.environ.get("DEXCOM_REAUTH_COOLDOWN", "60"))
 
+# Circuit breaker configuration
+CIRCUIT_BREAKER_FAILURE_THRESHOLD = int(
+    os.environ.get("CIRCUIT_BREAKER_FAILURE_THRESHOLD", "5")
+)
+CIRCUIT_BREAKER_RECOVERY_TIMEOUT_SECONDS = int(
+    os.environ.get("CIRCUIT_BREAKER_RECOVERY_TIMEOUT_SECONDS", "60")
+)
+
 # XDG Base Directory Specification defaults
 DEFAULT_DATA_DIR = os.environ.get(
     "XDG_DATA_HOME", str(Path.home() / ".local" / "share")
@@ -262,6 +270,11 @@ log_reopen_requested = False
 _consecutive_failures: int = 0
 _last_failure_time: Optional[float] = None
 _last_reauth_time: Optional[float] = None
+
+# Circuit breaker state
+_circuit_state: str = "closed"  # "closed", "open", "half_open"
+_circuit_failure_count: int = 0
+_circuit_opened_at: Optional[float] = None
 
 
 def retry_with_backoff(

@@ -866,5 +866,74 @@ class TestSessionResilience(unittest.TestCase):
             dexcom_readings.shutdown_requested = original_shutdown
 
 
+class TestCircuitBreaker(unittest.TestCase):
+    """Tests for circuit breaker state machine."""
+
+    def setUp(self):
+        """Reset circuit breaker state before each test."""
+        dexcom_readings._circuit_state = "closed"
+        dexcom_readings._circuit_failure_count = 0
+        dexcom_readings._circuit_opened_at = None
+
+    def tearDown(self):
+        """Reset circuit breaker state after each test."""
+        dexcom_readings._circuit_state = "closed"
+        dexcom_readings._circuit_failure_count = 0
+        dexcom_readings._circuit_opened_at = None
+
+    def test_circuit_breaker_failure_threshold_default(self):
+        """Verify CIRCUIT_BREAKER_FAILURE_THRESHOLD defaults to 5."""
+        import importlib
+        import os
+        # Remove env var if set
+        os.environ.pop('CIRCUIT_BREAKER_FAILURE_THRESHOLD', None)
+        importlib.reload(dexcom_readings)
+        self.assertEqual(dexcom_readings.CIRCUIT_BREAKER_FAILURE_THRESHOLD, 5)
+
+    def test_circuit_breaker_failure_threshold_from_env(self):
+        """Verify CIRCUIT_BREAKER_FAILURE_THRESHOLD uses env var value."""
+        import importlib
+        import os
+        with patch.dict(os.environ, {'CIRCUIT_BREAKER_FAILURE_THRESHOLD': '10'}):
+            importlib.reload(dexcom_readings)
+            self.assertEqual(dexcom_readings.CIRCUIT_BREAKER_FAILURE_THRESHOLD, 10)
+
+    def test_circuit_breaker_recovery_timeout_default(self):
+        """Verify CIRCUIT_BREAKER_RECOVERY_TIMEOUT_SECONDS defaults to 60."""
+        import importlib
+        import os
+        os.environ.pop('CIRCUIT_BREAKER_RECOVERY_TIMEOUT_SECONDS', None)
+        importlib.reload(dexcom_readings)
+        self.assertEqual(dexcom_readings.CIRCUIT_BREAKER_RECOVERY_TIMEOUT_SECONDS, 60)
+
+    def test_circuit_state_initializes_to_closed(self):
+        """Verify _circuit_state initializes to 'closed'."""
+        import importlib
+        import os
+        # Clear env vars and reload to get fresh state
+        os.environ.pop('CIRCUIT_BREAKER_FAILURE_THRESHOLD', None)
+        os.environ.pop('CIRCUIT_BREAKER_RECOVERY_TIMEOUT_SECONDS', None)
+        importlib.reload(dexcom_readings)
+        self.assertEqual(dexcom_readings._circuit_state, "closed")
+
+    def test_circuit_failure_count_initializes_to_zero(self):
+        """Verify _circuit_failure_count initializes to 0."""
+        import importlib
+        import os
+        os.environ.pop('CIRCUIT_BREAKER_FAILURE_THRESHOLD', None)
+        os.environ.pop('CIRCUIT_BREAKER_RECOVERY_TIMEOUT_SECONDS', None)
+        importlib.reload(dexcom_readings)
+        self.assertEqual(dexcom_readings._circuit_failure_count, 0)
+
+    def test_circuit_opened_at_initializes_to_none(self):
+        """Verify _circuit_opened_at initializes to None."""
+        import importlib
+        import os
+        os.environ.pop('CIRCUIT_BREAKER_FAILURE_THRESHOLD', None)
+        os.environ.pop('CIRCUIT_BREAKER_RECOVERY_TIMEOUT_SECONDS', None)
+        importlib.reload(dexcom_readings)
+        self.assertIsNone(dexcom_readings._circuit_opened_at)
+
+
 if __name__ == '__main__':
     unittest.main()
