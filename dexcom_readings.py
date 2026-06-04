@@ -29,6 +29,53 @@ from pydexcom.errors import AccountError, SessionError, ServerError
 
 import requests
 
+
+class TimeoutSession(requests.Session):
+    """requests.Session subclass that enforces default timeout on all requests.
+
+    pydexcom does not expose timeout parameters directly. This class injects
+    timeout by replacing the internal session object.
+
+    Per D-10: Pass timeouts to pydexcom client via session replacement.
+
+    Attributes:
+        _timeout: Tuple of (connection_timeout, read_timeout) in seconds.
+    """
+
+    def __init__(self, timeout: tuple) -> None:
+        """Initialize the TimeoutSession with default timeout values.
+
+        Args:
+            timeout: A tuple of (connection_timeout, read_timeout) in seconds.
+                connection_timeout: Time to wait for connection establishment.
+                read_timeout: Time to wait for response data.
+        """
+        super().__init__()
+        self._timeout = timeout
+
+    def request(
+        self, method: str, url: str, **kwargs
+    ) -> requests.Response:
+        """Override request to inject default timeout.
+
+        Sets timeout kwarg if not already provided, ensuring all requests
+        have a timeout.
+
+        Args:
+            method: HTTP method (GET, POST, etc.).
+            url: Request URL.
+            **kwargs: Additional arguments passed to parent request().
+
+        Returns:
+            requests.Response: The HTTP response.
+
+        Raises:
+            requests.exceptions.Timeout: If connection or read timeout occurs.
+        """
+        kwargs.setdefault('timeout', self._timeout)
+        return super().request(method, url, **kwargs)
+
+
 # IMPORTANT: Store your credentials securely as environment variables
 DEXCOM_USERNAME = os.environ.get("DEXCOM_USERNAME")
 DEXCOM_PASSWORD = os.environ.get("DEXCOM_PASSWORD")
@@ -389,8 +436,9 @@ def retry_with_backoff(
     """Executes a function with exponential backoff retry for transient failures.
 
     Retries the function on network-related exceptions, doubling the delay
-    between attempts up to max_delay. Integrates with circuit breaker to
-    prevent cascade failures during extended outages.
+    between attempts up to max_delay. Handles HTTP 429 rate limits specially
+    by respecting Retry-After header when provided. Integrates with circuit
+    breaker to prevent cascade failures during extended outages.
 
     Args:
         func: A callable to execute. Should be a lambda or partial that
@@ -425,6 +473,57 @@ def retry_with_backoff(
             # DO NOT call record_circuit_failure() - this is not a transient failure
             logging.error(f"Authentication failed: {e}")
             raise  # Propagate to caller for graceful exit
+        except requests.exceptions.HTTPError as e:
+            # Handle HTTP 429 rate limiting specially
+            # HTTPError must be caught before RequestException (it's a subclass)
+            if e.response is not None and e.response.status_code == 429:
+                last_exception = e
+                record_circuit_failure()
+
+                # Per D-11: Detect rate limit and back off
+                # Per D-12: Use Retry-After if available
+                retry_after = e.response.headers.get("Retry-After")
+                if retry_after:
+                    try:
+                        delay = float(retry_after)
+                        # Per D-13: Log rate limit encounters at WARNING level
+                        logging.warning(
+                            f"Rate limited (HTTP 429), waiting {delay}s (Retry-After)"
+                        )
+                    except ValueError:
+                        # Non-numeric Retry-After, use exponential backoff
+                        logging.warning(
+                            f"Rate limited (HTTP 429), waiting {delay}s"
+                        )
+                else:
+                    logging.warning(
+                        f"Rate limited (HTTP 429), waiting {delay}s"
+                    )
+
+                if attempt < max_attempts - 1:
+                    time.sleep(delay)
+                    # Only double delay if no Retry-After (use server's delay otherwise)
+                    if not retry_after:
+                        delay = min(delay * 2, max_delay)
+                else:
+                    logging.error(
+                        f"All {max_attempts} attempts failed. Last error: {e}"
+                    )
+            else:
+                # Non-429 HTTPError - treat as transient
+                last_exception = e
+                record_circuit_failure()
+                if attempt < max_attempts - 1:
+                    logging.warning(
+                        f"Attempt {attempt + 1}/{max_attempts} failed: {e}. "
+                        f"Retrying in {delay}s..."
+                    )
+                    time.sleep(delay)
+                    delay = min(delay * 2, max_delay)
+                else:
+                    logging.error(
+                        f"All {max_attempts} attempts failed. Last error: {e}"
+                    )
         except (requests.exceptions.RequestException,
                 ConnectionError,
                 TimeoutError,
@@ -599,6 +698,9 @@ def initialize_dexcom_client() -> Optional[Any]:
     DEXCOM_PASSWORD, DEXCOM_REGION) and creates an authenticated
     Dexcom client for fetching glucose readings.
 
+    Per D-10: Injects TimeoutSession into pydexcom client to enforce
+    connection and read timeouts.
+
     Args:
         None
 
@@ -626,6 +728,18 @@ def initialize_dexcom_client() -> Optional[Any]:
                 DEXCOM_PASSWORD,
                 ous=DEXCOM_REGION.lower() == "ous"
             )
+
+        # Per D-10: Inject timeout session into pydexcom client
+        timeout = (
+            DEXCOM_CONNECTION_TIMEOUT_SECONDS,
+            DEXCOM_READ_TIMEOUT_SECONDS
+        )
+        dexcom_client._session = TimeoutSession(timeout)
+        logging.debug(
+            f"Configured timeouts: connection={DEXCOM_CONNECTION_TIMEOUT_SECONDS}s, "
+            f"read={DEXCOM_READ_TIMEOUT_SECONDS}s"
+        )
+
         logging.info("Successfully connected to Dexcom Share.")
         return dexcom_client
     except Exception as e:

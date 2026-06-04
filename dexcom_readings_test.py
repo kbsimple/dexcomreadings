@@ -13,6 +13,8 @@ import time
 import unittest
 from unittest.mock import MagicMock, mock_open, patch
 
+import requests
+
 # Assuming dexcom_readings.py is in the same directory or accessible in PYTHONPATH
 import dexcom_readings
 
@@ -866,6 +868,197 @@ class TestSessionResilience(unittest.TestCase):
             dexcom_readings.shutdown_requested = original_shutdown
 
 
+class TestRateLimitHandling(unittest.TestCase):
+    """Tests for HTTP 429 rate limit handling."""
+
+    def setUp(self):
+        """Reset circuit breaker state before each test."""
+        dexcom_readings._circuit_state = "closed"
+        dexcom_readings._circuit_failure_count = 0
+        dexcom_readings._circuit_opened_at = None
+
+    def tearDown(self):
+        """Reset circuit breaker state after each test."""
+        dexcom_readings._circuit_state = "closed"
+        dexcom_readings._circuit_failure_count = 0
+        dexcom_readings._circuit_opened_at = None
+
+    @patch('dexcom_readings.time.sleep')
+    @patch('dexcom_readings.logging.warning')
+    def test_429_triggers_backoff(self, mock_log_warning, mock_sleep):
+        """Verify HTTP 429 triggers backoff with warning log."""
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        mock_response.headers = {}
+
+        call_count = [0]
+        def rate_limited_func():
+            call_count[0] += 1
+            if call_count[0] == 1:
+                raise requests.exceptions.HTTPError(response=mock_response)
+            return "success"
+
+        with patch.object(dexcom_readings, 'CIRCUIT_BREAKER_FAILURE_THRESHOLD', 10):
+            result = dexcom_readings.retry_with_backoff(rate_limited_func, max_attempts=3)
+
+        self.assertEqual(result, "success")
+        # Verify warning was logged
+        warning_calls = [c for c in mock_log_warning.call_args_list if "Rate limited" in str(c)]
+        self.assertTrue(len(warning_calls) > 0, "Should log rate limit warning")
+
+    @patch('dexcom_readings.time.sleep')
+    def test_429_uses_retry_after_header(self, mock_sleep):
+        """Verify HTTP 429 uses Retry-After header when provided."""
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        mock_response.headers = {"Retry-After": "5"}
+
+        call_count = [0]
+        def rate_limited_func():
+            call_count[0] += 1
+            if call_count[0] == 1:
+                raise requests.exceptions.HTTPError(response=mock_response)
+            return "success"
+
+        with patch.object(dexcom_readings, 'CIRCUIT_BREAKER_FAILURE_THRESHOLD', 10):
+            result = dexcom_readings.retry_with_backoff(rate_limited_func, max_attempts=3)
+
+        self.assertEqual(result, "success")
+        # Verify sleep was called with Retry-After value (5 seconds)
+        self.assertIn(5.0, [c[0][0] for c in mock_sleep.call_args_list])
+
+    @patch('dexcom_readings.time.sleep')
+    def test_429_counts_toward_circuit_breaker(self, mock_sleep):
+        """Verify HTTP 429 calls record_circuit_failure."""
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        mock_response.headers = {}
+
+        call_count = [0]
+        def rate_limited_func():
+            call_count[0] += 1
+            if call_count[0] < 3:
+                raise requests.exceptions.HTTPError(response=mock_response)
+            return "success"
+
+        with patch.object(dexcom_readings, 'CIRCUIT_BREAKER_FAILURE_THRESHOLD', 10):
+            result = dexcom_readings.retry_with_backoff(rate_limited_func, max_attempts=5)
+
+        self.assertEqual(result, "success")
+        # Failure count should have been reset to 0 on success
+        self.assertEqual(dexcom_readings._circuit_failure_count, 0)
+
+    @patch('dexcom_readings.time.sleep')
+    @patch('dexcom_readings.logging.warning')
+    def test_429_without_retry_after_uses_exponential_backoff(self, mock_log_warning, mock_sleep):
+        """Verify HTTP 429 without Retry-After uses exponential backoff."""
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        mock_response.headers = {}
+
+        call_count = [0]
+        def rate_limited_func():
+            call_count[0] += 1
+            if call_count[0] < 3:
+                raise requests.exceptions.HTTPError(response=mock_response)
+            return "success"
+
+        with patch.object(dexcom_readings, 'CIRCUIT_BREAKER_FAILURE_THRESHOLD', 10):
+            result = dexcom_readings.retry_with_backoff(
+                rate_limited_func,
+                max_attempts=5,
+                initial_delay=1,
+                max_delay=30
+            )
+
+        self.assertEqual(result, "success")
+        # Verify exponential backoff was used (first delay should be 1, second should be 2)
+        sleep_calls = [c[0][0] for c in mock_sleep.call_args_list]
+        self.assertEqual(sleep_calls[0], 1)  # First retry uses initial_delay
+
+    @patch('dexcom_readings.time.sleep')
+    @patch('dexcom_readings.logging.warning')
+    def test_429_invalid_retry_after_falls_back_to_exponential(self, mock_log_warning, mock_sleep):
+        """Verify HTTP 429 with invalid Retry-After falls back to exponential backoff."""
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        mock_response.headers = {"Retry-After": "invalid"}
+
+        call_count = [0]
+        def rate_limited_func():
+            call_count[0] += 1
+            if call_count[0] == 1:
+                raise requests.exceptions.HTTPError(response=mock_response)
+            return "success"
+
+        with patch.object(dexcom_readings, 'CIRCUIT_BREAKER_FAILURE_THRESHOLD', 10):
+            result = dexcom_readings.retry_with_backoff(
+                rate_limited_func,
+                max_attempts=3,
+                initial_delay=1
+            )
+
+        self.assertEqual(result, "success")
+        # Should have used exponential backoff instead of invalid Retry-After
+        sleep_calls = [c[0][0] for c in mock_sleep.call_args_list]
+        self.assertEqual(sleep_calls[0], 1)  # Initial delay (exponential backoff)
+
+    @patch('dexcom_readings.time.sleep')
+    def test_non_429_http_error_uses_standard_retry(self, mock_sleep):
+        """Verify non-429 HTTPError uses standard retry backoff."""
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.headers = {}
+
+        call_count = [0]
+        def error_func():
+            call_count[0] += 1
+            if call_count[0] < 3:
+                raise requests.exceptions.HTTPError(response=mock_response)
+            return "success"
+
+        with patch.object(dexcom_readings, 'CIRCUIT_BREAKER_FAILURE_THRESHOLD', 10):
+            result = dexcom_readings.retry_with_backoff(
+                error_func,
+                max_attempts=5,
+                initial_delay=1
+            )
+
+        self.assertEqual(result, "success")
+        # Verify standard exponential backoff was used
+        sleep_calls = [c[0][0] for c in mock_sleep.call_args_list]
+        self.assertEqual(sleep_calls[0], 1)  # First delay
+
+    @patch('dexcom_readings.time.sleep')
+    def test_multiple_429s_in_sequence_increase_delay(self, mock_sleep):
+        """Verify multiple 429s in sequence use increasing delays (exponential backoff)."""
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        mock_response.headers = {}
+
+        call_count = [0]
+        def rate_limited_func():
+            call_count[0] += 1
+            if call_count[0] < 4:
+                raise requests.exceptions.HTTPError(response=mock_response)
+            return "success"
+
+        with patch.object(dexcom_readings, 'CIRCUIT_BREAKER_FAILURE_THRESHOLD', 10):
+            result = dexcom_readings.retry_with_backoff(
+                rate_limited_func,
+                max_attempts=5,
+                initial_delay=1,
+                max_delay=30
+            )
+
+        self.assertEqual(result, "success")
+        # Verify delays increase: 1, 2, 4
+        sleep_calls = [c[0][0] for c in mock_sleep.call_args_list]
+        self.assertEqual(sleep_calls[0], 1)
+        self.assertEqual(sleep_calls[1], 2)
+        self.assertEqual(sleep_calls[2], 4)
+
+
 class TestCircuitBreaker(unittest.TestCase):
     """Tests for circuit breaker state machine."""
 
@@ -1241,6 +1434,93 @@ class TestTimeoutConfiguration(unittest.TestCase):
                 "Read timeout < 1 should use default"
             )
             mock_warning.assert_called()
+
+
+class TestTimeoutSession(unittest.TestCase):
+    """Tests for TimeoutSession and timeout configuration."""
+
+    def test_timeout_session_inherits_from_session(self):
+        """Verify TimeoutSession is a requests.Session subclass."""
+        self.assertTrue(
+            issubclass(dexcom_readings.TimeoutSession, requests.Session),
+            "TimeoutSession should inherit from requests.Session"
+        )
+
+    def test_timeout_session_sets_timeout_on_request(self):
+        """Verify TimeoutSession passes timeout to request method."""
+        with patch.object(requests.Session, 'request') as mock_request:
+            mock_request.return_value = MagicMock()
+
+            session = dexcom_readings.TimeoutSession(timeout=(5.0, 10.0))
+            session.request('GET', 'http://example.com')
+
+            # Verify timeout was passed to request
+            call_kwargs = mock_request.call_args[1]
+            self.assertEqual(call_kwargs.get('timeout'), (5.0, 10.0))
+
+    def test_timeout_session_preserves_explicit_timeout(self):
+        """Verify explicit timeout kwarg overrides default."""
+        with patch.object(requests.Session, 'request') as mock_request:
+            mock_request.return_value = MagicMock()
+
+            session = dexcom_readings.TimeoutSession(timeout=(5.0, 10.0))
+            session.request('GET', 'http://example.com', timeout=(1.0, 2.0))
+
+            # Explicit timeout should override default
+            call_kwargs = mock_request.call_args[1]
+            self.assertEqual(call_kwargs.get('timeout'), (1.0, 2.0))
+
+    def test_timeout_session_timeout_is_tuple(self):
+        """Verify timeout is (connection, read) tuple."""
+        session = dexcom_readings.TimeoutSession(timeout=(30.0, 30.0))
+        self.assertEqual(session._timeout, (30.0, 30.0))
+
+    @patch('dexcom_readings.Dexcom')
+    def test_initialize_dexcom_client_creates_timeout_session(self, mock_dexcom):
+        """Verify initialize_dexcom_client creates TimeoutSession."""
+        mock_client = MagicMock()
+        mock_dexcom.return_value = mock_client
+
+        with (patch('dexcom_readings.DEXCOM_USERNAME', 'testuser'),
+              patch('dexcom_readings.DEXCOM_PASSWORD', 'testpassword'),
+              patch('dexcom_readings.DEXCOM_REGION', 'us')):
+            client = dexcom_readings.initialize_dexcom_client()
+
+        # Verify _session was set to a TimeoutSession instance
+        self.assertIsNotNone(client)
+        self.assertIsInstance(
+            client._session,
+            dexcom_readings.TimeoutSession,
+            "dexcom_client._session should be TimeoutSession instance"
+        )
+
+    def test_timeout_uses_configured_values(self):
+        """Verify TimeoutSession uses configured timeout values."""
+        import importlib
+        with patch.dict(os.environ, {
+            'DEXCOM_USERNAME': 'testuser',
+            'DEXCOM_PASSWORD': 'testpass',
+            'DEXCOM_CONNECTION_TIMEOUT_SECONDS': '45',
+            'DEXCOM_READ_TIMEOUT_SECONDS': '60'
+        }):
+            # Reload module to pick up new env vars
+            importlib.reload(dexcom_readings)
+
+            # Now patch Dexcom on the reloaded module
+            with patch.object(dexcom_readings, 'Dexcom') as mock_dexcom:
+                mock_client = MagicMock()
+                mock_dexcom.return_value = mock_client
+
+                client = dexcom_readings.initialize_dexcom_client()
+
+                # Verify timeout matches configured values
+                self.assertIsNotNone(client)
+                self.assertEqual(client._session._timeout, (45, 60))
+
+        # Reload again to restore original state
+        os.environ.pop('DEXCOM_CONNECTION_TIMEOUT_SECONDS', None)
+        os.environ.pop('DEXCOM_READ_TIMEOUT_SECONDS', None)
+        importlib.reload(dexcom_readings)
 
 
 if __name__ == '__main__':
