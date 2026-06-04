@@ -1143,5 +1143,105 @@ class TestCircuitBreaker(unittest.TestCase):
             self.assertEqual(call_count[0], 0)
 
 
+class TestTimeoutConfiguration(unittest.TestCase):
+    """Tests for timeout configuration constants."""
+
+    def tearDown(self):
+        """Reload module to restore original constants after each test."""
+        import importlib
+        # Clear any environment variables that might have been set
+        os.environ.pop('DEXCOM_CONNECTION_TIMEOUT_SECONDS', None)
+        os.environ.pop('DEXCOM_READ_TIMEOUT_SECONDS', None)
+        importlib.reload(dexcom_readings)
+
+    def test_connection_timeout_defaults_to_30(self):
+        """Verify DEXCOM_CONNECTION_TIMEOUT_SECONDS defaults to 30."""
+        import importlib
+        os.environ.pop('DEXCOM_CONNECTION_TIMEOUT_SECONDS', None)
+        importlib.reload(dexcom_readings)
+        self.assertEqual(
+            dexcom_readings.DEXCOM_CONNECTION_TIMEOUT_SECONDS, 30,
+            "Connection timeout should default to 30 seconds"
+        )
+
+    def test_connection_timeout_from_env(self):
+        """Verify DEXCOM_CONNECTION_TIMEOUT_SECONDS uses env var value."""
+        import importlib
+        with patch.dict(os.environ, {'DEXCOM_CONNECTION_TIMEOUT_SECONDS': '45'}):
+            importlib.reload(dexcom_readings)
+            self.assertEqual(
+                dexcom_readings.DEXCOM_CONNECTION_TIMEOUT_SECONDS, 45,
+                "Connection timeout should use env var value"
+            )
+
+    def test_read_timeout_defaults_to_30(self):
+        """Verify DEXCOM_READ_TIMEOUT_SECONDS defaults to 30."""
+        import importlib
+        os.environ.pop('DEXCOM_READ_TIMEOUT_SECONDS', None)
+        importlib.reload(dexcom_readings)
+        self.assertEqual(
+            dexcom_readings.DEXCOM_READ_TIMEOUT_SECONDS, 30,
+            "Read timeout should default to 30 seconds"
+        )
+
+    def test_read_timeout_from_env(self):
+        """Verify DEXCOM_READ_TIMEOUT_SECONDS uses env var value."""
+        import importlib
+        with patch.dict(os.environ, {'DEXCOM_READ_TIMEOUT_SECONDS': '60'}):
+            importlib.reload(dexcom_readings)
+            self.assertEqual(
+                dexcom_readings.DEXCOM_READ_TIMEOUT_SECONDS, 60,
+                "Read timeout should use env var value"
+            )
+
+    @patch('dexcom_readings.logging.warning')
+    def test_connection_timeout_invalid_uses_default(self, mock_warning):
+        """Verify invalid DEXCOM_CONNECTION_TIMEOUT_SECONDS uses default."""
+        import importlib
+        with patch.dict(os.environ, {'DEXCOM_CONNECTION_TIMEOUT_SECONDS': 'invalid'}):
+            importlib.reload(dexcom_readings)
+            # Should fall back to default
+            self.assertEqual(
+                dexcom_readings.DEXCOM_CONNECTION_TIMEOUT_SECONDS, 30,
+                "Invalid connection timeout should fall back to default"
+            )
+
+    @patch('dexcom_readings.logging.warning')
+    def test_read_timeout_invalid_uses_default(self, mock_warning):
+        """Verify invalid DEXCOM_READ_TIMEOUT_SECONDS uses default."""
+        import importlib
+        with patch.dict(os.environ, {'DEXCOM_READ_TIMEOUT_SECONDS': 'invalid'}):
+            importlib.reload(dexcom_readings)
+            # Should fall back to default
+            self.assertEqual(
+                dexcom_readings.DEXCOM_READ_TIMEOUT_SECONDS, 30,
+                "Invalid read timeout should fall back to default"
+            )
+
+    @patch('dexcom_readings.logging.warning')
+    def test_connection_timeout_too_low_uses_default(self, mock_warning):
+        """Verify DEXCOM_CONNECTION_TIMEOUT_SECONDS < 1 uses default 30."""
+        import importlib
+        with patch.dict(os.environ, {'DEXCOM_CONNECTION_TIMEOUT_SECONDS': '0'}):
+            importlib.reload(dexcom_readings)
+            self.assertEqual(
+                dexcom_readings.DEXCOM_CONNECTION_TIMEOUT_SECONDS, 30,
+                "Connection timeout < 1 should use default"
+            )
+            mock_warning.assert_called()
+
+    @patch('dexcom_readings.logging.warning')
+    def test_read_timeout_too_low_uses_default(self, mock_warning):
+        """Verify DEXCOM_READ_TIMEOUT_SECONDS < 1 uses default 30."""
+        import importlib
+        with patch.dict(os.environ, {'DEXCOM_READ_TIMEOUT_SECONDS': '0'}):
+            importlib.reload(dexcom_readings)
+            self.assertEqual(
+                dexcom_readings.DEXCOM_READ_TIMEOUT_SECONDS, 30,
+                "Read timeout < 1 should use default"
+            )
+            mock_warning.assert_called()
+
+
 if __name__ == '__main__':
     unittest.main()

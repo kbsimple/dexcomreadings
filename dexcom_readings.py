@@ -73,6 +73,40 @@ CIRCUIT_BREAKER_RECOVERY_TIMEOUT_SECONDS = int(
     os.environ.get("CIRCUIT_BREAKER_RECOVERY_TIMEOUT_SECONDS", "60")
 )
 
+# API timeout configuration
+# Per D-08: Connection timeout for establishing connection to Dexcom API
+try:
+    DEXCOM_CONNECTION_TIMEOUT_SECONDS = int(
+        os.environ.get("DEXCOM_CONNECTION_TIMEOUT_SECONDS", "30")
+    )
+    if DEXCOM_CONNECTION_TIMEOUT_SECONDS < 1:
+        logging.warning(
+            "DEXCOM_CONNECTION_TIMEOUT_SECONDS must be at least 1, "
+            "using default 30"
+        )
+        DEXCOM_CONNECTION_TIMEOUT_SECONDS = 30
+except ValueError:
+    logging.warning(
+        "Invalid DEXCOM_CONNECTION_TIMEOUT_SECONDS value, using default 30"
+    )
+    DEXCOM_CONNECTION_TIMEOUT_SECONDS = 30
+
+# Per D-09: Read timeout for receiving response from Dexcom API
+try:
+    DEXCOM_READ_TIMEOUT_SECONDS = int(
+        os.environ.get("DEXCOM_READ_TIMEOUT_SECONDS", "30")
+    )
+    if DEXCOM_READ_TIMEOUT_SECONDS < 1:
+        logging.warning(
+            "DEXCOM_READ_TIMEOUT_SECONDS must be at least 1, using default 30"
+        )
+        DEXCOM_READ_TIMEOUT_SECONDS = 30
+except ValueError:
+    logging.warning(
+        "Invalid DEXCOM_READ_TIMEOUT_SECONDS value, using default 30"
+    )
+    DEXCOM_READ_TIMEOUT_SECONDS = 30
+
 # XDG Base Directory Specification defaults
 DEFAULT_DATA_DIR = os.environ.get(
     "XDG_DATA_HOME", str(Path.home() / ".local" / "share")
