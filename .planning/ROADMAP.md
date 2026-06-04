@@ -153,6 +153,13 @@ Plans:
   4. Dexcom API rate limits are handled with exponential backoff
   5. Connection and read timeouts are configurable via environment
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Implement circuit breaker state machine with three states (CLOSED/OPEN/HALF_OPEN)
+- [ ] 06-02-PLAN.md — Add HTTP 429 rate limit handling to retry_with_backoff
+- [ ] 06-03-PLAN.md — Implement TimeoutSession class and integrate with pydexcom client
+
 ---
 
 ## Progress
@@ -164,8 +171,8 @@ Plans:
 | 3. Testing & Documentation | 1/1 | Complete    | 2026-04-20 |
 | 4. System Daemon Compatibility | 4/4 | Complete | 2026-04-25 |
 | 5. Session Resilience | 3/3 | Complete | 2026-05-21 |
-| 6. Failure Handling & API Resilience | 0/0 | Not Started | — |
+| 6. Failure Handling & API Resilience | 0/3 | Not Started | — |
 
 ---
 
-*Last updated: 2026-05-21*
+*Last updated: 2026-06-04*
