@@ -277,6 +277,76 @@ _circuit_failure_count: int = 0
 _circuit_opened_at: Optional[float] = None
 
 
+def circuit_is_open() -> bool:
+    """Check if circuit breaker is open (blocking requests).
+
+    Returns True if the circuit is OPEN and recovery timeout has not elapsed.
+    Transitions to HALF_OPEN if recovery timeout has elapsed, allowing a test request.
+    Returns False if circuit is CLOSED or HALF_OPEN (requests allowed).
+
+    Returns:
+        bool: True if requests should be blocked, False if requests are allowed.
+    """
+    global _circuit_state, _circuit_opened_at
+
+    if _circuit_state == "closed":
+        return False
+
+    if _circuit_state == "open":
+        now = time.time()
+        if _circuit_opened_at and (now - _circuit_opened_at) >= CIRCUIT_BREAKER_RECOVERY_TIMEOUT_SECONDS:
+            # Transition to half-open for testing
+            _circuit_state = "half_open"
+            logging.warning("Circuit breaker transitioning to HALF_OPEN")
+            return False
+        return True
+
+    # half_open state - allow one test request
+    return False
+
+
+def record_circuit_failure() -> None:
+    """Record a failure and potentially open the circuit breaker.
+
+    Increments failure count. Opens circuit if threshold is reached.
+    In HALF_OPEN state, immediately re-opens circuit on test failure.
+
+    Per D-07: Logs circuit state transitions at WARNING level.
+    """
+    global _circuit_state, _circuit_failure_count, _circuit_opened_at
+
+    _circuit_failure_count += 1
+
+    if _circuit_state == "half_open":
+        # Test request failed, back to open
+        _circuit_state = "open"
+        _circuit_opened_at = time.time()
+        logging.warning("Circuit breaker HALF_OPEN -> OPEN (test request failed)")
+    elif _circuit_failure_count >= CIRCUIT_BREAKER_FAILURE_THRESHOLD:
+        _circuit_state = "open"
+        _circuit_opened_at = time.time()
+        logging.warning(
+            f"Circuit breaker CLOSED -> OPEN "
+            f"(failures: {_circuit_failure_count}, threshold: {CIRCUIT_BREAKER_FAILURE_THRESHOLD})"
+        )
+
+
+def record_circuit_success() -> None:
+    """Record a success and close the circuit if in half_open state.
+
+    Resets failure count to 0. If circuit was in HALF_OPEN, transitions to CLOSED.
+    Per D-07: Logs circuit state transitions at WARNING level.
+    """
+    global _circuit_state, _circuit_failure_count, _circuit_opened_at
+
+    _circuit_failure_count = 0
+
+    if _circuit_state == "half_open":
+        _circuit_state = "closed"
+        _circuit_opened_at = None
+        logging.warning("Circuit breaker HALF_OPEN -> CLOSED (recovered)")
+
+
 def retry_with_backoff(
         func: Any,
         max_attempts: int = RETRY_MAX_ATTEMPTS,

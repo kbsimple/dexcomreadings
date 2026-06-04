@@ -934,6 +934,104 @@ class TestCircuitBreaker(unittest.TestCase):
         importlib.reload(dexcom_readings)
         self.assertIsNone(dexcom_readings._circuit_opened_at)
 
+    # Tests for circuit_is_open()
+    def test_circuit_is_open_returns_false_when_closed(self):
+        """Verify circuit_is_open() returns False when state is 'closed'."""
+        dexcom_readings._circuit_state = "closed"
+        result = dexcom_readings.circuit_is_open()
+        self.assertFalse(result)
+
+    def test_circuit_is_open_returns_true_when_open_and_timeout_not_elapsed(self):
+        """Verify circuit_is_open() returns True when state is 'open' and timeout not elapsed."""
+        dexcom_readings._circuit_state = "open"
+        dexcom_readings._circuit_opened_at = time.time()  # Just opened
+        result = dexcom_readings.circuit_is_open()
+        self.assertTrue(result)
+
+    def test_circuit_is_open_transitions_to_half_open_after_timeout(self):
+        """Verify circuit_is_open() transitions to 'half_open' after recovery timeout."""
+        # Set circuit to open with timeout elapsed
+        dexcom_readings._circuit_state = "open"
+        # Set opened_at to more than RECOVERY_TIMEOUT seconds ago
+        dexcom_readings._circuit_opened_at = (
+            time.time() - dexcom_readings.CIRCUIT_BREAKER_RECOVERY_TIMEOUT_SECONDS - 1
+        )
+        result = dexcom_readings.circuit_is_open()
+        self.assertFalse(result)
+        self.assertEqual(dexcom_readings._circuit_state, "half_open")
+
+    def test_circuit_is_open_returns_false_when_half_open(self):
+        """Verify circuit_is_open() returns False when state is 'half_open'."""
+        dexcom_readings._circuit_state = "half_open"
+        result = dexcom_readings.circuit_is_open()
+        self.assertFalse(result)
+
+    # Tests for record_circuit_failure()
+    def test_record_circuit_failure_increments_count(self):
+        """Verify record_circuit_failure() increments failure count."""
+        dexcom_readings._circuit_failure_count = 0
+        dexcom_readings.record_circuit_failure()
+        self.assertEqual(dexcom_readings._circuit_failure_count, 1)
+
+    def test_record_circuit_failure_opens_circuit_at_threshold(self):
+        """Verify record_circuit_failure() opens circuit when threshold reached."""
+        dexcom_readings._circuit_failure_count = (
+            dexcom_readings.CIRCUIT_BREAKER_FAILURE_THRESHOLD - 1
+        )
+        dexcom_readings._circuit_state = "closed"
+        dexcom_readings.record_circuit_failure()
+        self.assertEqual(dexcom_readings._circuit_state, "open")
+        self.assertIsNotNone(dexcom_readings._circuit_opened_at)
+
+    @patch('dexcom_readings.logging.warning')
+    def test_record_circuit_failure_logs_warning_on_open(self, mock_warning):
+        """Verify record_circuit_failure() logs WARNING with failure count and threshold."""
+        dexcom_readings._circuit_failure_count = (
+            dexcom_readings.CIRCUIT_BREAKER_FAILURE_THRESHOLD - 1
+        )
+        dexcom_readings._circuit_state = "closed"
+        dexcom_readings.record_circuit_failure()
+        mock_warning.assert_called()
+        call_args = str(mock_warning.call_args)
+        self.assertIn("CLOSED -> OPEN", call_args)
+
+    def test_record_circuit_failure_reopens_from_half_open(self):
+        """Verify record_circuit_failure() transitions from 'half_open' to 'open'."""
+        dexcom_readings._circuit_state = "half_open"
+        dexcom_readings._circuit_opened_at = None
+        dexcom_readings.record_circuit_failure()
+        self.assertEqual(dexcom_readings._circuit_state, "open")
+        self.assertIsNotNone(dexcom_readings._circuit_opened_at)
+
+    # Tests for record_circuit_success()
+    def test_record_circuit_success_resets_failure_count(self):
+        """Verify record_circuit_success() resets failure count to 0."""
+        dexcom_readings._circuit_failure_count = 3
+        dexcom_readings.record_circuit_success()
+        self.assertEqual(dexcom_readings._circuit_failure_count, 0)
+
+    @patch('dexcom_readings.logging.warning')
+    def test_record_circuit_success_closes_from_half_open(self, mock_warning):
+        """Verify record_circuit_success() transitions from 'half_open' to 'closed'."""
+        dexcom_readings._circuit_state = "half_open"
+        dexcom_readings._circuit_opened_at = time.time()
+        dexcom_readings.record_circuit_success()
+        self.assertEqual(dexcom_readings._circuit_state, "closed")
+        self.assertIsNone(dexcom_readings._circuit_opened_at)
+        mock_warning.assert_called()
+        call_args = str(mock_warning.call_args)
+        self.assertIn("HALF_OPEN -> CLOSED", call_args)
+
+    def test_record_circuit_success_does_nothing_when_closed(self):
+        """Verify record_circuit_success() does nothing special when state is 'closed'."""
+        dexcom_readings._circuit_state = "closed"
+        dexcom_readings._circuit_failure_count = 0
+        dexcom_readings._circuit_opened_at = None
+        dexcom_readings.record_circuit_success()
+        self.assertEqual(dexcom_readings._circuit_state, "closed")
+        self.assertEqual(dexcom_readings._circuit_failure_count, 0)
+        self.assertIsNone(dexcom_readings._circuit_opened_at)
+
 
 if __name__ == '__main__':
     unittest.main()
